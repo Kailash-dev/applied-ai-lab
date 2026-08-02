@@ -24,9 +24,10 @@
 |------|--------|
 | Path | `/Users/kailash/Code/personal/learning/Ai-engineering/applied-ai-lab` |
 | GitHub | https://github.com/Kailash-dev/applied-ai-lab |
-| Branch | `feat/realtime-token-streaming` |
+| Branch | `main` |
 
 ---
+
 
 ## Progress tracker
 
