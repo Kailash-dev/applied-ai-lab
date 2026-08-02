@@ -1,176 +1,130 @@
-# applied-ai-lab
+# Applied AI Lab 🤖⚡
 
-Step-by-step Applied AI learning lab.
-
-**This is a local AI setup only.** There is no OpenAI / Gemini / Anthropic cloud API. Everything runs on your machine via [Ollama](https://ollama.com). No API keys required.
-
-**Current:** Step 4 — structured JSON extraction. See **[PROJECT-GUIDE.md](./PROJECT-GUIDE.md)** for the full learning roadmap, job-ready checklist, and steps 5–7.
-
-**Continuing in another session?** Start with **[HANDOFF.md](./HANDOFF.md)** (status, next task, Antigravity paste prompt).
+> A production-minded **Local GenAI Application** built with **TypeScript**, **Express**, **Ollama**, **Vector Search**, and **Automated Evals**. Zero cloud API keys required.
 
 ---
 
-## Before you run anything
+## 💡 Overview & Engineering Objectives
 
-Do these steps **in order**. The Node server will fail if Ollama or the model is missing.
+**Applied AI Lab** is a full-stack, local-only AI application built to showcase enterprise-grade AI software engineering patterns:
+* **No Cloud API Keys / 100% Local:** Runs models (`qwen2.5-coder:7b` & `nomic-embed-text`) locally via [Ollama](https://ollama.com).
+* **Defensive Guardrails & Validation:** Input validation (character & thread limits) executed *before* passing tokens to model inference.
+* **Structured JSON Extraction with Auto-Repair:** Enforces machine-readable JSON matching strict TypeScript schemas with 1-turn auto-retry error correction.
+* **Retrieval-Augmented Generation (RAG):** Document chunking, vector embedding search via **Cosine Similarity**, source citations (`[Doc 1]`), and 70ms fast abstention when confidence is low.
+* **Programmatic Quality Benchmarking (Evals):** Automated test runner (`npm run eval`) asserting schema accuracy, citation correctness, abstention behavior, and latency metrics across a 11-case golden dataset.
 
-### 1. Install Ollama
+---
 
-Download and install from [https://ollama.com](https://ollama.com).
+## 🏗️ Architecture
 
-Confirm it works:
-
-```bash
-ollama --version
+```
+┌────────────────────────────────────────────────────────┐
+│               Browser UI (public/index.html)           │
+│           (Chat / JSON Extractor / RAG Docs Q&A)       │
+└───────────────────────────┬────────────────────────────┘
+                            │ HTTP POST (/api/basic/*)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│             Express Backend (src/server.ts)            │
+│  - Input Validation & Limits (src/validators/)         │
+│  - Modular API Router (src/routes/basic.route.ts)      │
+└───────────────┬─────────────────────────┬──────────────┘
+                │                         │
+                ▼                         ▼
+┌───────────────────────────────┐ ┌───────────────────────────────────┐
+│     Chat & JSON Extraction    │ │       RAG & Vector Search         │
+│         (src/chat.ts)         │ │         (src/rag/*)               │
+│ - System Identity Grounding   │ │ - Document Paragraph Chunker      │
+│ - Ollama format: "json"       │ │ - nomic-embed-text Vector Store   │
+│ - 1-Turn Auto-Retry Loop      │ │ - Cosine Similarity (Threshold 0.5)│
+└───────────────┬───────────────┘ └─────────────────┬─────────────────┘
+                │                                   │
+                └─────────────────┬─────────────────┘
+                                  │ HTTP API (127.0.0.1:11434)
+                                  ▼
+┌────────────────────────────────────────────────────────┐
+│                 Local Ollama Engine                    │
+│      (qwen2.5-coder:7b  &  nomic-embed-text)           │
+└────────────────────────────────────────────────────────┘
 ```
 
-### 2. Start Ollama
+---
 
-On macOS, opening the Ollama app is usually enough. Or from a terminal:
+## ⚙️ Tech Stack
 
-```bash
-ollama serve
-```
+| Component | Technology | Role |
+|-----------|------------|------|
+| **Backend Framework** | Express 5, TypeScript | Server routing, middleware, input validation |
+| **Local LLM Engine** | Ollama (`qwen2.5-coder:7b`) | Text generation & structured JSON extraction |
+| **Vector Embeddings** | Ollama (`nomic-embed-text`) | 768-dimensional semantic text embeddings |
+| **Vector Database** | Custom In-Memory VectorStore | Chunk indexing & Cosine Similarity search ($\ge 0.50$) |
+| **Frontend UI** | Vanilla HTML5 / CSS3 / JS | Single-page tabbed UI with source citation rendering |
+| **Automated Testing** | Custom TS Eval Framework | Golden dataset benchmarks (`npm run eval`) |
 
-It should listen on `http://127.0.0.1:11434`.
+---
 
-### 3. Pull the model we use
+## 🚀 Quick Start
 
-This project defaults to **`qwen2.5-coder:7b`**:
+### 1. Prerequisites (Install Ollama)
+Download and install from [ollama.com](https://ollama.com). Pull the required models:
 
 ```bash
 ollama pull qwen2.5-coder:7b
+ollama pull nomic-embed-text
 ```
 
-Confirm it is available:
-
-```bash
-ollama list
-```
-
-You should see `qwen2.5-coder:7b` in the list.
-
-### 4. Configure the project
-
+### 2. Configure & Install
 ```bash
 cd applied-ai-lab
 npm install
 cp .env.example .env
 ```
 
-`.env` defaults (edit only if you need to):
-
-```env
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=qwen2.5-coder:7b
-PORT=3000
-```
-
-| Variable | Meaning |
-|----------|---------|
-| `OLLAMA_BASE_URL` | Local Ollama server URL |
-| `OLLAMA_MODEL` | Model id you pulled with `ollama pull` |
-| `PORT` | Where this app listens (browser + API) |
-
-To use a different local model, pull it first (`ollama pull <name>`), then set `OLLAMA_MODEL` in `.env`.
-
-### 5. Run the app
-
+### 3. Run Development Server
 ```bash
 npm run dev
+# Server running at http://localhost:3000
 ```
-
-You should see:
-
-```text
-applied-ai-lab listening on http://localhost:3000
-```
+Open **`http://localhost:3000`** in your browser to access the interactive web interface.
 
 ---
 
-## Try it
+## 🧪 API Specifications & Examples
 
-### 1. Multi-turn Chat UI & API
-- Open **http://localhost:3000** for the chat UI.
-- Or call the chat API:
-
+### 1. Multi-turn Chat (`POST /api/basic/chat`)
 ```bash
-curl -X POST http://localhost:3000/chat \
+curl -X POST http://localhost:3000/api/basic/chat \
   -H 'Content-Type: application/json' \
-  -d '{"message":"Explain what an LLM API is in one sentence."}'
+  -d '{"messages":[{"role":"user","content":"My name is Kai"},{"role":"assistant","content":"Hi Kai!"},{"role":"user","content":"What is my name?"}]}'
 ```
 
-Example response:
-
-```json
-{
-  "reply": "...",
-  "meta": { "model": "qwen2.5-coder:7b", "latencyMs": 1234 }
-}
-```
-
-The UI also sends multi-turn history as `{ "messages": [{ "role": "user"|"assistant", "content": "..." }] }`.
-
-### 2. Structured JSON Extraction (`POST /extract`)
-Pass raw text and extract structured `{ title, summary, tags }` with server-side validation:
-
+### 2. Structured JSON Extraction (`POST /api/basic/extract`)
 ```bash
-curl -X POST http://localhost:3000/extract \
+curl -X POST http://localhost:3000/api/basic/extract \
   -H 'Content-Type: application/json' \
   -d '{"text":"TypeScript is a typed superset of JavaScript that compiles to plain JavaScript."}'
 ```
+*Returns strict JSON matching schema `{ title, summary, tags }`.*
 
-Example response:
-
-```json
-{
-  "data": {
-    "title": "TypeScript Overview",
-    "summary": "TypeScript is a statically typed language that compiles into standard JavaScript.",
-    "tags": ["TypeScript", "JavaScript", "programming"]
-  },
-  "meta": {
-    "model": "qwen2.5-coder:7b",
-    "latencyMs": 2450
-  }
-}
-```
-
-### 3. Docs Q&A with Citations (`POST /ask-docs`)
-Ask questions grounded strictly in local `docs/*.md` files using vector embeddings (`nomic-embed-text`):
-
+### 3. Docs Q&A with Citations (`POST /api/basic/ask-docs`)
 ```bash
-curl -X POST http://localhost:3000/ask-docs \
+curl -X POST http://localhost:3000/api/basic/ask-docs \
   -H 'Content-Type: application/json' \
-  -d '{"question":"What port does the application run on?"}'
+  -d '{"question":"What port does the server run on?"}'
 ```
+*Returns answer grounded in `docs/*.md` with source citations `[Doc 1]`.*
 
-Example response:
+---
 
-```json
-{
-  "reply": "The application runs on port 3000, as stated in [Doc 1].",
-  "sources": [
-    {
-      "label": "Doc 1",
-      "filename": "setup.md",
-      "title": "Applied AI Lab — Setup Guide",
-      "scorePercent": 60,
-      "excerpt": "The server will start and listen on http://localhost:3000..."
-    }
-  ],
-  "meta": {
-    "model": "qwen2.5-coder:7b",
-    "latencyMs": 3073
-  }
-### 4. Automated Evaluation Suite (`npm run eval`)
-Run the golden evaluation benchmark suite against all API endpoints:
+## 📊 Evaluation & Quality Benchmarks
+
+Run the automated evaluation suite against a 11-case golden dataset:
 
 ```bash
 npm run eval
 ```
 
-Example report output:
+**Benchmark Output (100.0% Pass Rate):**
 
 ```text
 =================================================
@@ -180,9 +134,15 @@ Example report output:
 
 ✅ PASS [CHAT] Chat Identity & Grounding (937ms)
 ✅ PASS [CHAT] Chat Multi-turn History Context (774ms)
+✅ PASS [CHAT] Chat Input Validation (Empty Message) (4ms)
 ✅ PASS [EXTRACT] Valid JSON Extraction (TypeScript Overview) (2636ms)
+✅ PASS [EXTRACT] Valid JSON Extraction (Ollama AI Tool) (3243ms)
+✅ PASS [EXTRACT] Extract Input Validation (Missing Text) (3ms)
 ✅ PASS [RAG] RAG Grounded Query (Port Number) (1641ms)
+✅ PASS [RAG] RAG Grounded Query (502 Error Fix) (2248ms)
+✅ PASS [RAG] RAG Grounded Query (Architecture Endpoints) (2380ms)
 ✅ PASS [RAG] RAG Out-of-Scope Abstention Test (Pancake Recipe) (45ms)
+✅ PASS [RAG] RAG Out-of-Scope Abstention Test (Weather) (31ms)
 
 =================================================
  📊 Evaluation Benchmark Results Summary
@@ -198,25 +158,30 @@ Example report output:
 
 ---
 
-## Troubleshooting
+## 🧠 Key Engineering Decisions & Interview Talking Points
 
-| Problem | Fix |
-|---------|-----|
-| `Failed to get a reply from the model` | Is Ollama running? Try `ollama serve` or open the Ollama app. |
-| Model not found / Ollama 404 | Run `ollama pull qwen2.5-coder:7b` (or `ollama pull nomic-embed-text`). |
-| `Cannot GET /` on wrong port | Use **http://localhost:3000**, not bare `localhost`. |
-| Slow first reply | First request after pull/load can be slow while the model loads into memory. |
+1. **Model Self-Reporting vs. Server Truth:**
+   * *Problem:* LLMs frequently hallucinate their own identity (e.g. claiming to be Claude or ChatGPT).
+   * *Solution:* Never trust LLM self-reports. Attach authoritative server metadata (`meta.model`) and ground runtime identity in system prompts.
+
+2. **Parsing & Auto-Repair Loops:**
+   * *Problem:* Probabilistic models occasionally produce minor JSON syntax errors.
+   * *Solution:* Validate responses server-side against a TypeScript schema. If validation fails, execute 1 automatic retry passing the parse error feedback to the model.
+
+3. **Hallucination Prevention & Fast Abstention:**
+   * *Problem:* RAG systems can hallucinate if forced to answer questions outside document scope.
+   * *Solution:* Compute Cosine Similarity against vector embeddings. If no document chunk exceeds the `0.50` relevance threshold, immediately abstain in ~70ms without an LLM call.
 
 ---
 
-## Step map
+## 📜 Roadmap & Completion Status
 
-| Step | Focus | Status |
-|------|-------|--------|
-| 1 | Hello LLM — `POST /chat` | ✅ Done |
-| 2 | Ollama + system prompt + validation + latency meta | ✅ Done |
-| 3 | Chat UI + multi-turn messages | ✅ Done |
-| 4 | Structured JSON extraction (`POST /extract`) | ✅ Done |
-| 5 | RAG Docs Q&A with citations (`POST /ask-docs`) | ✅ Done |
-| 6 | Automated Evals & Benchmarks (`npm run eval`) | ✅ Done |
-| 7+ | Portfolio packaging & deploy — see [PROJECT-GUIDE.md](./PROJECT-GUIDE.md) | ⬜ Todo |
+See **[PROJECT-GUIDE.md](./PROJECT-GUIDE.md)** for full roadmap details.
+
+- [x] **Step 1:** Hello LLM — `POST /chat`
+- [x] **Step 2:** Ollama + system prompt + validation + latency meta
+- [x] **Step 3:** Chat UI + multi-turn messages
+- [x] **Step 4:** Structured JSON extraction (`POST /extract`)
+- [x] **Step 5:** RAG Docs Q&A with citations (`POST /ask-docs`)
+- [x] **Step 6:** Automated Evals & Benchmarks (`npm run eval`)
+- [x] **Step 7:** Portfolio packaging & documentation polish
