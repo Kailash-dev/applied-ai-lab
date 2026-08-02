@@ -26,9 +26,10 @@
 |------|--------|
 | Path | `/Users/kailash/Code/personal/learning/Ai-engineering/applied-ai-lab` |
 | GitHub | https://github.com/Kailash-dev/applied-ai-lab |
-| Branch | `feat/multi-agent-system` |
+| Branch | `main` |
 
 ---
+
 
 ## Progress tracker
 
