@@ -5,6 +5,7 @@ import { vectorStore } from "./rag/vectorStore";
 import basicRoute from "./routes/basic.route";
 import agentRoute from "./routes/agent.route";
 import sessionRoute from "./routes/session.route";
+import multiAgentRoute from "./routes/multiagent.route";
 import { initDatabase } from "./db/database";
 
 const app = express();
@@ -18,6 +19,7 @@ app.use(express.static(publicDir));
 app.use("/api/basic", basicRoute);
 app.use("/api/agent", agentRoute);
 app.use("/api/sessions", sessionRoute);
+app.use("/api/multiagent", multiAgentRoute);
 
 // Backward compatibility routes for project 1 endpoints
 app.use("/", basicRoute);

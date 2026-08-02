@@ -10,12 +10,13 @@
 ## TL;DR for the next agent
 
 1. This is a **local-only** Ollama app (no cloud LLM APIs required).
-2. **Project 1, Project 2, Project 3A, and Project 3B are 100% COMPLETE!**
+2. **Project 1, Project 2, Project 3A, Project 3B, and Project 4 are 100% COMPLETE!**
    - Project 1: Multi-turn chat, structured JSON extraction (`/extract`), RAG with citations (`/ask-docs`), automated evals.
    - Project 2: Autonomous ReAct AI Agent with tool suite (`sql_query`, `doc_search`, `calculator`, `get_system_time`), trace UI, and evals (`/api/agent/run`).
    - Project 3A: Real-time token streaming using Server-Sent Events (SSE) on `POST /api/basic/chat/stream`.
    - Project 3B: Persistent SQLite database storage (`data/app.db`) for sessions, messages, and agent execution traces (`/api/sessions`).
-3. Stack: TypeScript + Express 5 + Ollama (`qwen2.5-coder:7b` & `nomic-embed-text`) + SQLite (`better-sqlite3`) + custom ReAct Agent + custom RAG + SSE Token Streaming + custom Evals.
+   - Project 4: Hierarchical Multi-Agent System (Supervisor Manager ➔ Researcher ➔ Coder ➔ Auditor) with visual UI tab & multi-agent evals (`/api/multiagent/run`).
+3. Stack: TypeScript + Express 5 + Ollama (`qwen2.5-coder:7b` & `nomic-embed-text`) + SQLite (`better-sqlite3`) + ReAct Agent + Multi-Agent Orchestrator + RAG + SSE Streaming + Evals.
 
 ---
 
@@ -25,10 +26,9 @@
 |------|--------|
 | Path | `/Users/kailash/Code/personal/learning/Ai-engineering/applied-ai-lab` |
 | GitHub | https://github.com/Kailash-dev/applied-ai-lab |
-| Branch | `main` |
+| Branch | `feat/multi-agent-system` |
 
 ---
-
 
 ## Progress tracker
 
@@ -42,6 +42,7 @@
 | **Project 2** | `GET /api/agent/tools` | ✅ Done | Tool registry schema endpoint |
 | **Project 3A** | `POST /api/basic/chat/stream` | ✅ Done | Real-time token streaming via Server-Sent Events (SSE) |
 | **Project 3B** | `GET /api/sessions` | ✅ Done | SQLite persistent storage for sessions & agent runs |
+| **Project 4** | `POST /api/multiagent/run` | ✅ Done | Multi-Agent System (Supervisor Manager + Researcher + Coder + Auditor) |
 
 ---
 
@@ -51,18 +52,10 @@
 # Server
 npm run dev
 
-# SQLite Sessions List
-curl -s http://localhost:3000/api/sessions
-
-# Real-Time SSE Token Stream
-curl -N -s -X POST http://localhost:3000/api/basic/chat/stream \
+# Multi-Agent Workflow
+curl -X POST http://localhost:3000/api/multiagent/run \
   -H 'Content-Type: application/json' \
-  -d '{"message":"Say Hello in 3 words"}'
-
-# Autonomous Agent
-curl -X POST http://localhost:3000/api/agent/run \
-  -H 'Content-Type: application/json' \
-  -d '{"prompt":"Find user Kai in database and calculate total order sum."}'
+  -d '{"goal":"Build an authentication helper function and audit for security."}'
 
 # Evals Benchmark
 npm run eval
@@ -70,7 +63,8 @@ npm run eval
 
 ---
 
-*Last updated: Project 1, Project 2, Project 3A & Project 3B complete.*
+*Last updated: Project 1, Project 2, Project 3A, Project 3B & Project 4 complete.*
+
 
 
 

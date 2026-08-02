@@ -166,6 +166,18 @@
       "containsAny": ["development", "UTC", "timestamp", "environment", "uptime"],
       "requireTool": "get_system_time"
     }
+  },
+  {
+    "id": "multiagent-01",
+    "category": "multiagent",
+    "name": "Multi-Agent System Dispatch (Researcher, Coder, Auditor)",
+    "endpoint": "/api/multiagent/run",
+    "payload": { "goal": "Build an authentication helper function and audit for security." },
+    "assertions": {
+      "expectedStatus": 200,
+      "requireSubAgents": ["researcher", "coder", "auditor"]
+    }
   }
 ]
+
 

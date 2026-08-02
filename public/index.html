@@ -406,8 +406,10 @@
           <button type="button" class="tab-btn" id="tab-extract">🧩 JSON Extractor</button>
           <button type="button" class="tab-btn" id="tab-rag">📚 Docs Q&A (RAG)</button>
           <button type="button" class="tab-btn" id="tab-agent">🤖 Autonomous Agent</button>
+          <button type="button" class="tab-btn" id="tab-multiagent">👥 Multi-Agent System</button>
         </div>
       </header>
+
 
       <!-- Collapsible SQLite Session History Drawer -->
       <div id="history-drawer" style="display:none; background:#fff; border:1px solid var(--line); border-radius:14px; padding:0.85rem; margin-bottom:0.75rem; max-height:220px; overflow-y:auto;">
@@ -454,6 +456,7 @@
       const tabExtract = document.getElementById("tab-extract");
       const tabRag = document.getElementById("tab-rag");
       const tabAgent = document.getElementById("tab-agent");
+      const tabMultiagent = document.getElementById("tab-multiagent");
       const btnHistory = document.getElementById("btn-history");
       const historyDrawer = document.getElementById("history-drawer");
       const closeHistory = document.getElementById("close-history");
@@ -538,7 +541,7 @@
       };
 
 
-      /** @type {"chat" | "extract" | "rag" | "agent"} */
+      /** @type {"chat" | "extract" | "rag" | "agent" | "multiagent"} */
       let currentMode = "chat";
 
       /** @type {{ role: "user" | "assistant"; content: string }[]} */
@@ -549,6 +552,7 @@
       tabExtract.addEventListener("click", () => setMode("extract"));
       tabRag.addEventListener("click", () => setMode("rag"));
       tabAgent.addEventListener("click", () => setMode("agent"));
+      tabMultiagent.addEventListener("click", () => setMode("multiagent"));
 
       function setMode(mode) {
         if (currentMode === mode) return;
@@ -558,6 +562,7 @@
         tabExtract.classList.toggle("active", mode === "extract");
         tabRag.classList.toggle("active", mode === "rag");
         tabAgent.classList.toggle("active", mode === "agent");
+        tabMultiagent.classList.toggle("active", mode === "multiagent");
 
         if (mode === "chat") {
           input.placeholder = "Type a message…";
@@ -575,8 +580,13 @@
           input.placeholder = "Give the agent a task requiring tools (e.g., 'Find Kai in the database and calculate 99 * 0.92')...";
           if (emptyTitle) emptyTitle.textContent = "Autonomous AI Agent (ReAct Loop)";
           if (emptyDesc) emptyDesc.textContent = "Autonomous agent that reasons step-by-step, calls tools (SQL, RAG, Calc, System), and streams live execution trace.";
+        } else if (mode === "multiagent") {
+          input.placeholder = "Assign a complex goal for the sub-agent team (e.g. 'Build an authentication middleware and audit it')...";
+          if (emptyTitle) emptyTitle.textContent = "Multi-Agent System (Supervisor + Sub-Agents)";
+          if (emptyDesc) emptyDesc.textContent = "Hierarchical team (Supervisor Manager ➔ Researcher ➔ Coder ➔ Quality Auditor) executing and auditing complex tasks.";
         }
       }
+
 
       function hideEmpty() {
         if (emptyEl) emptyEl.style.display = "none";
@@ -598,7 +608,30 @@
 
         const body = document.createElement("div");
         
-        if (extra.agentSteps) {
+        if (extra.multiAgentTraces) {
+          const teamContainer = document.createElement("div");
+          teamContainer.style.cssText = "display:flex; flex-direction:column; gap:0.6rem; margin-bottom:0.75rem;";
+
+          extra.multiAgentTraces.forEach((t) => {
+            const agentBox = document.createElement("div");
+            agentBox.style.cssText = "background:rgba(255,255,255,0.9); border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.8rem; font-size:0.82rem;";
+            
+            agentBox.innerHTML = `
+              <div style="font-weight:700; color:var(--user); margin-bottom:0.3rem;">${escapeHtml(t.title)} <span style="font-size:0.7rem; color:var(--muted); float:right;">${t.latencyMs} ms</span></div>
+              <div style="font-size:0.76rem; color:var(--muted); margin-bottom:0.4rem; font-family:'JetBrains Mono',monospace;">Task: ${escapeHtml(t.input)}</div>
+              <div style="color:var(--ink); line-height:1.4; white-space:pre-wrap; background:rgba(0,0,0,0.02); padding:0.5rem; border-radius:6px;">${escapeHtml(t.output)}</div>
+            `;
+            teamContainer.appendChild(agentBox);
+          });
+
+          body.appendChild(teamContainer);
+
+          const summaryBox = document.createElement("div");
+          summaryBox.style.cssText = "background:#fff; border:1px solid rgba(15,110,106,0.4); border-radius:12px; padding:0.75rem; font-size:0.92rem; line-height:1.5; color:var(--ink);";
+          summaryBox.innerHTML = `<strong style="color:var(--user); display:block; margin-bottom:0.25rem;">📊 Audited Deliverable Summary:</strong> ${escapeHtml(content)}`;
+          body.appendChild(summaryBox);
+        } else if (extra.agentSteps) {
+
           const stepsContainer = document.createElement("div");
           stepsContainer.style.cssText = "display:flex; flex-direction:column; gap:0.5rem; margin-bottom:0.75rem;";
           
@@ -868,7 +901,34 @@
             if (data.meta?.model) {
               modelLabel.textContent = `model: ${data.meta.model}`;
             }
+          } else if (currentMode === "multiagent") {
+            // Multi-Agent System Workflow Mode
+            const response = await fetch("/api/multiagent/run", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ goal: text, sessionId: currentSessionId }),
+            });
+
+            const data = await response.json();
+            thinking.remove();
+
+            if (!response.ok) {
+              const detail = data.detail ? `\n${data.detail}` : "";
+              addMessage("assistant", `${data.error || "Multi-agent execution failed."}${detail}`, { error: true });
+              return;
+            }
+
+            addMessage("assistant", data.finalAuditedReport || "(empty report)", {
+              multiAgentTraces: data.subAgentTraces,
+              latencyMs: data.meta?.latencyMs,
+            });
+
+            if (data.meta?.sessionId) currentSessionId = data.meta.sessionId;
+            if (data.meta?.model) {
+              modelLabel.textContent = `model: ${data.meta.model}`;
+            }
           }
+
         } catch (error) {
           thinking.remove();
           addMessage(

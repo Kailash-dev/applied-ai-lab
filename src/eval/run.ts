@@ -123,6 +123,21 @@ async function runEvals() {
             errorDetail = `Expected agent step trace to include tool '${requiredTool}', but executed: [${executedTools.join(", ")}]`;
           }
         }
+
+        // Check Multi-Agent requireSubAgents assertion
+        if (passed && (testCase.assertions as any).requireSubAgents) {
+          const requiredAgents: string[] = (testCase.assertions as any).requireSubAgents;
+          const traces = (body.subAgentTraces as Array<{ role: string }>) ?? [];
+          const executedRoles = traces.map((t) => t.role);
+          for (const reqRole of requiredAgents) {
+            if (!executedRoles.includes(reqRole)) {
+              passed = false;
+              errorDetail = `Expected multi-agent trace to include sub-agent '${reqRole}', but executed: [${executedRoles.join(", ")}]`;
+              break;
+            }
+          }
+        }
+
       }
 
 
