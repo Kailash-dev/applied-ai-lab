@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { parseAskDocsInput, parseExtractInput, parseMessages } from "../validators/validators";
 import { askDocs } from "../rag/askDocs";
-import { chat, extractJSON } from "../chat";
+import { chat, chatStream, extractJSON } from "../chat";
+
 
 const route = Router();
 
@@ -40,6 +41,31 @@ route.post("/chat", async (req, res) => {
       error: "Failed to get a reply from the model.",
       detail,
     });
+  }
+});
+
+route.post("/chat/stream", async (req, res) => {
+  const parsed = parseMessages(req.body);
+  if ("error" in parsed) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  try {
+    const meta = await chatStream(parsed, (token) => {
+      res.write(`data: ${JSON.stringify({ token })}\n\n`);
+    });
+
+    res.write(`data: ${JSON.stringify({ done: true, meta })}\n\n`);
+    res.end();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    res.write(`data: ${JSON.stringify({ error: "Streaming failed", detail })}\n\n`);
+    res.end();
   }
 });
 

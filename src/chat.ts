@@ -137,6 +137,82 @@ export async function chat(messages: ChatMessage[]): Promise<ChatResult> {
   };
 }
 
+export async function callLLMStream(
+  messages: ChatMessage[],
+  onChunk: (token: string) => void
+): Promise<{ model: string; latencyMs: number }> {
+  const started = Date.now();
+  const model = getActiveModel();
+
+  const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      stream: true,
+      messages,
+    }),
+  });
+
+  if (!res.ok || !res.body) {
+    const body = await res.text();
+    throw new Error(`Ollama stream error ${res.status}: ${body.slice(0, 300)}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const parsed = JSON.parse(line) as { message?: { content?: string } };
+        if (parsed.message?.content) {
+          onChunk(parsed.message.content);
+        }
+      } catch (err) {
+        // Skip malformed NDJSON line
+      }
+    }
+  }
+
+  if (buffer.trim()) {
+    try {
+      const parsed = JSON.parse(buffer) as { message?: { content?: string } };
+      if (parsed.message?.content) {
+        onChunk(parsed.message.content);
+      }
+    } catch (err) {}
+  }
+
+  return {
+    model: `${AI_PROVIDER}:${model}`,
+    latencyMs: Date.now() - started,
+  };
+}
+
+export async function chatStream(
+  messages: ChatMessage[],
+  onChunk: (token: string) => void
+): Promise<{ model: string; latencyMs: number }> {
+  const activeModel = getActiveModel();
+  const fullMessages: ChatMessage[] = [
+    { role: "system", content: buildSystemPrompt(activeModel) },
+    ...messages,
+  ];
+
+  return callLLMStream(fullMessages, onChunk);
+}
+
+
 function parseAndValidateExtraction(rawContent: string): ExtractedData {
   let cleaned = rawContent.trim();
   if (cleaned.startsWith("```")) {

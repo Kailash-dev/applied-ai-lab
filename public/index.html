@@ -637,30 +637,67 @@
         try {
           if (currentMode === "chat") {
             history.push({ role: "user", content: text });
-            const response = await fetch("/api/basic/chat", {
+            const response = await fetch("/api/basic/chat/stream", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ messages: history }),
             });
 
-            const data = await response.json();
             thinking.remove();
 
             if (!response.ok) {
+              const data = await response.json();
               const detail = data.detail ? `\n${data.detail}` : "";
               addMessage("assistant", `${data.error || "Request failed."}${detail}`, { error: true });
               history.pop();
               return;
             }
 
-            const reply = data.reply || "(empty reply)";
-            addMessage("assistant", reply, { latencyMs: data.meta?.latencyMs });
-            history.push({ role: "assistant", content: reply });
+            const streamMsgEl = addMessage("assistant", "");
+            const bodyEl = streamMsgEl.querySelector("div");
+            let accumulatedText = "";
 
-            if (data.meta?.model) {
-              modelLabel.textContent = `model: ${data.meta.model}`;
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const events = buffer.split("\n\n");
+              buffer = events.pop() || "";
+
+              for (const evt of events) {
+                const line = evt.trim();
+                if (line.startsWith("data: ")) {
+                  const jsonStr = line.replace(/^data:\s*/, "");
+                  try {
+                    const payload = JSON.parse(jsonStr);
+                    if (payload.token) {
+                      accumulatedText += payload.token;
+                      bodyEl.textContent = accumulatedText;
+                      scrollToBottom();
+                    } else if (payload.done && payload.meta) {
+                      if (payload.meta.latencyMs) {
+                        const meta = document.createElement("span");
+                        meta.className = "latency";
+                        meta.textContent = `${payload.meta.latencyMs} ms`;
+                        streamMsgEl.appendChild(meta);
+                      }
+                      if (payload.meta.model) {
+                        modelLabel.textContent = `model: ${payload.meta.model}`;
+                      }
+                    }
+                  } catch (err) {}
+                }
+              }
             }
+
+            history.push({ role: "assistant", content: accumulatedText });
           } else if (currentMode === "extract") {
+
             // JSON Extraction Mode
             const response = await fetch("/api/basic/extract", {
               method: "POST",
