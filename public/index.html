@@ -404,6 +404,7 @@
           <button type="button" class="tab-btn active" id="tab-chat">💬 Multi-turn Chat</button>
           <button type="button" class="tab-btn" id="tab-extract">🧩 JSON Extractor</button>
           <button type="button" class="tab-btn" id="tab-rag">📚 Docs Q&A (RAG)</button>
+          <button type="button" class="tab-btn" id="tab-agent">🤖 Autonomous Agent</button>
         </div>
       </header>
 
@@ -441,8 +442,9 @@
       const tabChat = document.getElementById("tab-chat");
       const tabExtract = document.getElementById("tab-extract");
       const tabRag = document.getElementById("tab-rag");
+      const tabAgent = document.getElementById("tab-agent");
 
-      /** @type {"chat" | "extract" | "rag"} */
+      /** @type {"chat" | "extract" | "rag" | "agent"} */
       let currentMode = "chat";
 
       /** @type {{ role: "user" | "assistant"; content: string }[]} */
@@ -452,6 +454,7 @@
       tabChat.addEventListener("click", () => setMode("chat"));
       tabExtract.addEventListener("click", () => setMode("extract"));
       tabRag.addEventListener("click", () => setMode("rag"));
+      tabAgent.addEventListener("click", () => setMode("agent"));
 
       function setMode(mode) {
         if (currentMode === mode) return;
@@ -460,6 +463,7 @@
         tabChat.classList.toggle("active", mode === "chat");
         tabExtract.classList.toggle("active", mode === "extract");
         tabRag.classList.toggle("active", mode === "rag");
+        tabAgent.classList.toggle("active", mode === "agent");
 
         if (mode === "chat") {
           input.placeholder = "Type a message…";
@@ -473,6 +477,10 @@
           input.placeholder = "Ask a question about local documentation (e.g. 'What port does the app run on?')...";
           if (emptyTitle) emptyTitle.textContent = "Docs Q&A (RAG)";
           if (emptyDesc) emptyDesc.textContent = "Ask questions grounded strictly in local docs/*.md files with citations.";
+        } else if (mode === "agent") {
+          input.placeholder = "Give the agent a task requiring tools (e.g., 'Find Kai in the database and calculate 99 * 0.92')...";
+          if (emptyTitle) emptyTitle.textContent = "Autonomous AI Agent (ReAct Loop)";
+          if (emptyDesc) emptyDesc.textContent = "Autonomous agent that reasons step-by-step, calls tools (SQL, RAG, Calc, System), and streams live execution trace.";
         }
       }
 
@@ -491,12 +499,43 @@
 
         const roleLabel = document.createElement("span");
         roleLabel.className = "role";
-        roleLabel.textContent = extra.error ? "Error" : role === "user" ? "You" : "Assistant";
+        roleLabel.textContent = extra.error ? "Error" : role === "user" ? "You" : role === "agent" ? "Autonomous Agent" : "Assistant";
         el.appendChild(roleLabel);
 
         const body = document.createElement("div");
         
-        if (extra.extractedData) {
+        if (extra.agentSteps) {
+          const stepsContainer = document.createElement("div");
+          stepsContainer.style.cssText = "display:flex; flex-direction:column; gap:0.5rem; margin-bottom:0.75rem;";
+          
+          extra.agentSteps.forEach((s) => {
+            const stepBox = document.createElement("div");
+            stepBox.style.cssText = "background:rgba(255,255,255,0.85); border:1px solid var(--line); border-radius:10px; padding:0.6rem 0.75rem; font-size:0.82rem;";
+            
+            let innerHtml = `<div style="font-weight:600; color:var(--user); margin-bottom:0.25rem;">Step ${s.step}: Reasoning</div>`;
+            innerHtml += `<div style="color:var(--ink); margin-bottom:0.35rem; line-height:1.4;">${escapeHtml(s.thought)}</div>`;
+
+            if (s.toolCall) {
+              innerHtml += `
+                <div style="background:rgba(15,110,106,0.08); border-left:3px solid var(--user); padding:0.4rem 0.6rem; border-radius:6px; margin-top:0.35rem; font-family:'JetBrains Mono',monospace; font-size:0.75rem;">
+                  <strong>🔧 Tool Executed:</strong> ${escapeHtml(s.toolCall.name)}
+                  <div style="margin-top:0.2rem; color:var(--muted);">Args: ${escapeHtml(JSON.stringify(s.toolCall.args))}</div>
+                  <div style="margin-top:0.25rem; color:var(--ink);">Result: ${escapeHtml(JSON.stringify(s.toolResult))}</div>
+                </div>
+              `;
+            }
+
+            stepBox.innerHTML = innerHtml;
+            stepsContainer.appendChild(stepBox);
+          });
+
+          body.appendChild(stepsContainer);
+
+          const answerBox = document.createElement("div");
+          answerBox.style.cssText = "background:#fff; border:1px solid rgba(15,110,106,0.3); border-radius:12px; padding:0.75rem; font-size:0.92rem; font-weight:500; line-height:1.5; color:var(--ink);";
+          answerBox.innerHTML = `<strong style="color:var(--user); display:block; margin-bottom:0.25rem;">🎯 Final Answer:</strong> ${escapeHtml(content)}`;
+          body.appendChild(answerBox);
+        } else if (extra.extractedData) {
           const d = extra.extractedData;
           body.innerHTML = `
             <div class="extracted-card">
@@ -671,6 +710,31 @@
             if (data.meta?.model) {
               modelLabel.textContent = `model: ${data.meta.model}`;
             }
+          } else if (currentMode === "agent") {
+            // Autonomous Agent ReAct Mode
+            const response = await fetch("/api/agent/run", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ prompt: text }),
+            });
+
+            const data = await response.json();
+            thinking.remove();
+
+            if (!response.ok) {
+              const detail = data.detail ? `\n${data.detail}` : "";
+              addMessage("assistant", `${data.error || "Agent execution failed."}${detail}`, { error: true });
+              return;
+            }
+
+            addMessage("assistant", data.finalAnswer || "(empty answer)", {
+              agentSteps: data.steps,
+              latencyMs: data.meta?.latencyMs,
+            });
+
+            if (data.meta?.model) {
+              modelLabel.textContent = `model: ${data.meta.model}`;
+            }
           }
         } catch (error) {
           thinking.remove();
@@ -686,5 +750,6 @@
         }
       });
     </script>
+
   </body>
 </html>

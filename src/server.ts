@@ -2,7 +2,8 @@ import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { vectorStore } from "./rag/vectorStore";
-import route from "./routes/basic.route";
+import basicRoute from "./routes/basic.route";
+import agentRoute from "./routes/agent.route";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
@@ -12,7 +13,11 @@ const docsDir = path.join(process.cwd(), "docs");
 
 app.use(express.json());
 app.use(express.static(publicDir));
-app.use("/api/basic",route)
+app.use("/api/basic", basicRoute);
+app.use("/api/agent", agentRoute);
+
+// Backward compatibility routes for project 1 endpoints
+app.use("/", basicRoute);
 
 app.listen(PORT, async () => {
   console.log(`applied-ai-lab listening on http://localhost:${PORT}`);
@@ -34,4 +39,8 @@ app.listen(PORT, async () => {
   console.log(
     `curl -X POST http://localhost:${PORT}/ask-docs -H 'Content-Type: application/json' -d '{"question":"How do I run the app?"}'`,
   );
+  console.log(
+    `curl -X POST http://localhost:${PORT}/api/agent/run -H 'Content-Type: application/json' -d '{"prompt":"Find user Kai in the database and calculate total order sum"}'`,
+  );
 });
+

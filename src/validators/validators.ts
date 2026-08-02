@@ -96,3 +96,38 @@ export const parseAskDocsInput = (body: unknown): string | { error: string } => 
 
   return record.question.trim();
 }
+
+export type ParsedAgentInput = {
+  prompt: string;
+  maxSteps?: number;
+};
+
+export const parseAgentInput = (body: unknown): ParsedAgentInput | { error: string } => {
+  if (!body || typeof body !== "object") {
+    return { error: 'Body must be JSON with a "prompt" string.' };
+  }
+
+  const record = body as { prompt?: unknown; maxSteps?: unknown };
+  if (typeof record.prompt !== "string" || record.prompt.trim() === "") {
+    return { error: 'Body must include a non-empty string "prompt".' };
+  }
+
+  if (record.prompt.length > MAX_MESSAGE_LENGTH) {
+    return {
+      error: `"prompt" must be at most ${MAX_MESSAGE_LENGTH} characters.`,
+    };
+  }
+
+  let maxSteps: number | undefined;
+  if (record.maxSteps !== undefined) {
+    if (typeof record.maxSteps !== "number" || record.maxSteps < 1 || record.maxSteps > 10) {
+      return { error: '"maxSteps" must be a number between 1 and 10.' };
+    }
+    maxSteps = record.maxSteps;
+  }
+
+  return {
+    prompt: record.prompt.trim(),
+    maxSteps,
+  };
+};

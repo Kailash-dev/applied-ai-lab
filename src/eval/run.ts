@@ -112,7 +112,19 @@ async function runEvals() {
             errorDetail = `Expected at most ${testCase.assertions.maxSources} sources (abstention test), got ${sources.length}`;
           }
         }
+
+        // Check Agent requireTool assertion
+        if (passed && (testCase.assertions as any).requireTool) {
+          const requiredTool = (testCase.assertions as any).requireTool;
+          const steps = (body.steps as Array<{ toolCall?: { name: string } }>) ?? [];
+          const executedTools = steps.map((s) => s.toolCall?.name).filter(Boolean);
+          if (!executedTools.includes(requiredTool)) {
+            passed = false;
+            errorDetail = `Expected agent step trace to include tool '${requiredTool}', but executed: [${executedTools.join(", ")}]`;
+          }
+        }
       }
+
 
       results.push({
         id: testCase.id,

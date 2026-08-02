@@ -379,49 +379,65 @@ Use this before moving to Project 2 (agent or separate doc Q&A):
 
 ---
 
-## After Project 1 — what's next
+## Project 2 — Autonomous AI Agent (Tools & ReAct Loop) (✅ Done)
 
-Project 1 = **LLM app fundamentals**. For a full AI engineer portfolio, add later:
+**Goal:** Added `POST /api/agent/run` — an autonomous ReAct (Reasoning + Acting) agent that breaks down multi-step user prompts, selects tools (`sql_query`, `doc_search`, `calculator`, `get_system_time`), executes them dynamically, updates its memory state, and streams a step-by-step trace to the UI.
 
-| Project 2 | Agent with tools (SQL, search, API calls) |
-| Project 3 | Deployed micro-tool with auth + rate limits |
+**Why employers care:** Modern GenAI applications are shifting from simple prompt-response wrappers to **autonomous agents** that take real-world actions, query production databases, and solve multi-step problems without human intervention.
 
-Don't start those until Project 1 checklist is ✅.
-
----
-
-## Quick commands
-
-```bash
-# Setup
-npm install
-cp .env.example .env
-ollama pull qwen2.5-coder:7b
-
-# Run
-npm run dev
-# → http://localhost:3000
-
-# Single-turn API
-curl -X POST http://localhost:3000/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"Hello"}'
-
-# Multi-turn API
-curl -X POST http://localhost:3000/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"messages":[{"role":"user","content":"My name is Kai"},{"role":"assistant","content":"Hi Kai!"},{"role":"user","content":"What is my name?"}]}'
+```mermaid
+flowchart TD
+  User["User Prompt"] --> Agent["runAgent() Loop"]
+  Agent --> LLM["LLM ReAct Prompt"]
+  LLM --> Decision{"Decision: Tool or Final Answer?"}
+  Decision -->|Tool Request| Exec["Tool Execution (SQL / RAG / Calc / System)"]
+  Exec --> Observation["Tool Observation -> History"]
+  Observation --> Agent
+  Decision -->|Final Answer| Return["Return Trace & Answer"]
 ```
 
+### Tool Registry
+
+| Tool | Purpose | Example Input |
+|------|---------|---------------|
+| `sql_query` | Query mock DB tables (`users`, `orders`, `products`) | `"SELECT * FROM orders WHERE user_name = Kai"` |
+| `doc_search` | Reuses vector RAG engine for knowledge base retrieval | `"What port does the application run on?"` |
+| `calculator` | Safe mathematical expression evaluation | `"99.0 + 49.5"` |
+| `get_system_time` | Server timestamp & environment diagnostic info | `{}` |
+
+### Key Code Files
+
+| File | Role |
+|------|------|
+| `src/agent/agent.ts` | ReAct loop orchestrator, step tracer, safety step cap (`maxSteps = 5`) |
+| `src/agent/tools.ts` | Tool definitions, schemas, and mock database |
+| `src/routes/agent.route.ts` | Express router mounting `GET /tools` and `POST /run` |
+
+**Try it:**
+
+```bash
+curl -X POST http://localhost:3000/api/agent/run \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"Find user Kai in the database and calculate total order sum."}'
+```
+
+**Resume bullet:**  
+*Built an autonomous AI Agent using a ReAct execution loop over Ollama, supporting multi-tool selection (SQL, vector search, calculator), safety step limits, and visual execution tracing.*
+
 ---
 
-## How to use this doc
+## Interview prep — questions you'll get
 
-1. **While building:** Check off items in each step's checklist.
-2. **While learning:** Read "Concepts to internalize" after each step you complete.
-3. **While job hunting:** Copy resume bullets; practice "Interview one-liners."
-4. **When stuck:** Re-read the architecture diagram and trace the request path in code.
+### "Tell me about this project."
+
+**30-second pitch:**  
+"I built Applied AI Lab to master GenAI engineering end-to-end. It features multi-turn chat, structured JSON extraction, vector RAG with citations, and an **Autonomous ReAct Agent** capable of dynamic tool execution (SQL database, vector search, calculator, system diagnostics) with automated evals measuring quality and tool selection accuracy."
+
+### "How does your Agent prevent infinite loops?"
+
+"The agent loop enforces a strict `maxSteps` budget (default 5 steps). Each iteration evaluates whether the model produced a tool action or a `final_answer`. If the step cap is reached before resolution, the execution terminates gracefully and returns partial trace telemetry."
 
 ---
 
-*Last updated: Step 3 complete. Next action: implement Step 4 (structured JSON).*
+*Last updated: Project 1 & Project 2 100% Complete!*
+

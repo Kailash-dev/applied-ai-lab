@@ -130,5 +130,42 @@
       "containsAny": ["don't have enough information"],
       "maxSources": 0
     }
+  },
+  {
+    "id": "agent-01",
+    "category": "agent",
+    "name": "Agent Tool Call (SQL Database & Calculator)",
+    "endpoint": "/api/agent/run",
+    "payload": { "prompt": "Find Kai's orders in the database and calculate total sum." },
+    "assertions": {
+      "expectedStatus": 200,
+      "containsAny": ["Kai", "148.5", "99", "49.5"],
+      "requireTool": "sql_query"
+    }
+  },
+  {
+    "id": "agent-02",
+    "category": "agent",
+    "name": "Agent Tool Call (Doc Search)",
+    "endpoint": "/api/agent/run",
+    "payload": { "prompt": "Search internal documentation to find what port the server runs on." },
+    "assertions": {
+      "expectedStatus": 200,
+      "containsAny": ["3000"],
+      "requireTool": "doc_search"
+    }
+  },
+  {
+    "id": "agent-03",
+    "category": "agent",
+    "name": "Agent Tool Call (System Time & Status)",
+    "endpoint": "/api/agent/run",
+    "payload": { "prompt": "Get current server system time and runtime environment." },
+    "assertions": {
+      "expectedStatus": 200,
+      "containsAny": ["development", "UTC", "timestamp", "environment", "uptime"],
+      "requireTool": "get_system_time"
+    }
   }
 ]
+
