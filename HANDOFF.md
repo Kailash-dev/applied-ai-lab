@@ -10,11 +10,12 @@
 ## TL;DR for the next agent
 
 1. This is a **local-only** Ollama app (no cloud LLM APIs required).
-2. **Project 1, Project 2, and Project 3A are 100% COMPLETE!**
+2. **Project 1, Project 2, Project 3A, and Project 3B are 100% COMPLETE!**
    - Project 1: Multi-turn chat, structured JSON extraction (`/extract`), RAG with citations (`/ask-docs`), automated evals.
    - Project 2: Autonomous ReAct AI Agent with tool suite (`sql_query`, `doc_search`, `calculator`, `get_system_time`), trace UI, and evals (`/api/agent/run`).
    - Project 3A: Real-time token streaming using Server-Sent Events (SSE) on `POST /api/basic/chat/stream`.
-3. Stack: TypeScript + Express 5 + Ollama (`qwen2.5-coder:7b` & `nomic-embed-text`) + custom ReAct Agent + custom RAG + SSE Token Streaming + custom Evals.
+   - Project 3B: Persistent SQLite database storage (`data/app.db`) for sessions, messages, and agent execution traces (`/api/sessions`).
+3. Stack: TypeScript + Express 5 + Ollama (`qwen2.5-coder:7b` & `nomic-embed-text`) + SQLite (`better-sqlite3`) + custom ReAct Agent + custom RAG + SSE Token Streaming + custom Evals.
 
 ---
 
@@ -24,10 +25,9 @@
 |------|--------|
 | Path | `/Users/kailash/Code/personal/learning/Ai-engineering/applied-ai-lab` |
 | GitHub | https://github.com/Kailash-dev/applied-ai-lab |
-| Branch | `main` |
+| Branch | `feat/persistent-database-storage` |
 
 ---
-
 
 ## Progress tracker
 
@@ -40,6 +40,7 @@
 | **Project 2** | `POST /api/agent/run` | ✅ Done | Autonomous ReAct Agent with dynamic tool execution loop |
 | **Project 2** | `GET /api/agent/tools` | ✅ Done | Tool registry schema endpoint |
 | **Project 3A** | `POST /api/basic/chat/stream` | ✅ Done | Real-time token streaming via Server-Sent Events (SSE) |
+| **Project 3B** | `GET /api/sessions` | ✅ Done | SQLite persistent storage for sessions & agent runs |
 
 ---
 
@@ -48,6 +49,9 @@
 ```bash
 # Server
 npm run dev
+
+# SQLite Sessions List
+curl -s http://localhost:3000/api/sessions
 
 # Real-Time SSE Token Stream
 curl -N -s -X POST http://localhost:3000/api/basic/chat/stream \
@@ -65,6 +69,7 @@ npm run eval
 
 ---
 
-*Last updated: Project 1, Project 2 & Project 3A complete.*
+*Last updated: Project 1, Project 2, Project 3A & Project 3B complete.*
+
 
 

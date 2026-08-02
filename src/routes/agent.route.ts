@@ -14,6 +14,8 @@ route.get("/tools", (req, res) => {
   res.json({ tools: toolList });
 });
 
+import { createSession, getSession, saveAgentRun } from "../db/database";
+
 route.post("/run", async (req, res) => {
   const parsed = parseAgentInput(req.body);
   if ("error" in parsed) {
@@ -21,14 +23,20 @@ route.post("/run", async (req, res) => {
     return;
   }
 
+  const reqSessionId = typeof req.body.sessionId === "string" ? req.body.sessionId : undefined;
+  const session = (reqSessionId && getSession(reqSessionId)) || createSession("agent", parsed.prompt.slice(0, 30));
+
   try {
     const result = await runAgent(parsed.prompt, parsed.maxSteps ?? 5);
+    saveAgentRun(session.id, parsed.prompt, result.finalAnswer, result.steps, result.latencyMs);
+
     res.json({
       finalAnswer: result.finalAnswer,
       steps: result.steps,
       meta: {
         model: result.model,
         latencyMs: result.latencyMs,
+        sessionId: session.id,
       },
     });
   } catch (error) {
@@ -39,5 +47,6 @@ route.post("/run", async (req, res) => {
     });
   }
 });
+
 
 export default route;

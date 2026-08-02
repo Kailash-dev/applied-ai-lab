@@ -19,6 +19,8 @@ route.get("/debug", (req, res) => {
 })
 
 
+import { createSession, getSession, saveMessage } from "../db/database";
+
 route.post("/chat", async (req, res) => {
   const parsed = parseMessages(req.body);
   if ("error" in parsed) {
@@ -26,13 +28,22 @@ route.post("/chat", async (req, res) => {
     return;
   }
 
+  const reqSessionId = typeof req.body.sessionId === "string" ? req.body.sessionId : undefined;
+  const session = (reqSessionId && getSession(reqSessionId)) || createSession("chat");
+
   try {
+    const lastUserMsg = parsed[parsed.length - 1]?.content ?? "";
+    saveMessage(session.id, "user", lastUserMsg);
+
     const result = await chat(parsed);
+    saveMessage(session.id, "assistant", result.reply);
+
     res.json({
       reply: result.reply,
       meta: {
         model: result.model,
         latencyMs: result.latencyMs,
+        sessionId: session.id,
       },
     });
   } catch (error) {
@@ -44,6 +55,7 @@ route.post("/chat", async (req, res) => {
   }
 });
 
+
 route.post("/chat/stream", async (req, res) => {
   const parsed = parseMessages(req.body);
   if ("error" in parsed) {
@@ -51,16 +63,27 @@ route.post("/chat/stream", async (req, res) => {
     return;
   }
 
+  const reqSessionId = typeof req.body.sessionId === "string" ? req.body.sessionId : undefined;
+  const session = (reqSessionId && getSession(reqSessionId)) || createSession("chat");
+
+  const lastUserMsg = parsed[parsed.length - 1]?.content ?? "";
+  saveMessage(session.id, "user", lastUserMsg);
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
+  let fullReply = "";
+
   try {
     const meta = await chatStream(parsed, (token) => {
+      fullReply += token;
       res.write(`data: ${JSON.stringify({ token })}\n\n`);
     });
 
-    res.write(`data: ${JSON.stringify({ done: true, meta })}\n\n`);
+    saveMessage(session.id, "assistant", fullReply);
+
+    res.write(`data: ${JSON.stringify({ done: true, meta: { ...meta, sessionId: session.id } })}\n\n`);
     res.end();
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown error";
@@ -68,6 +91,7 @@ route.post("/chat/stream", async (req, res) => {
     res.end();
   }
 });
+
 
 route.post("/extract", async (req, res) => {
   const parsedText = parseExtractInput(req.body);

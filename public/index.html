@@ -399,6 +399,7 @@
         <div class="meta-bar">
           <span id="status">Ready</span>
           <span id="model-label">model: …</span>
+          <button type="button" id="btn-history" style="padding:0.25rem 0.65rem; border-radius:999px; background:rgba(15,110,106,0.12); color:var(--user); font-size:0.75rem; border:1px solid rgba(15,110,106,0.25); cursor:pointer;">📜 SQLite History</button>
         </div>
         <div class="mode-tabs">
           <button type="button" class="tab-btn active" id="tab-chat">💬 Multi-turn Chat</button>
@@ -407,6 +408,15 @@
           <button type="button" class="tab-btn" id="tab-agent">🤖 Autonomous Agent</button>
         </div>
       </header>
+
+      <!-- Collapsible SQLite Session History Drawer -->
+      <div id="history-drawer" style="display:none; background:#fff; border:1px solid var(--line); border-radius:14px; padding:0.85rem; margin-bottom:0.75rem; max-height:220px; overflow-y:auto;">
+        <div style="display:flex; justify-between; align-items:center; margin-bottom:0.5rem;">
+          <strong style="font-size:0.88rem; color:var(--ink);">💾 Saved SQLite Sessions</strong>
+          <span id="close-history" style="cursor:pointer; font-size:0.75rem; color:var(--muted);">✖ Close</span>
+        </div>
+        <div id="session-list" style="display:flex; flex-direction:column; gap:0.4rem;"></div>
+      </div>
 
       <main class="chat-shell">
         <div id="messages">
@@ -429,6 +439,7 @@
       </main>
     </div>
 
+
     <script>
       const messagesEl = document.getElementById("messages");
       const emptyEl = document.getElementById("empty");
@@ -443,6 +454,89 @@
       const tabExtract = document.getElementById("tab-extract");
       const tabRag = document.getElementById("tab-rag");
       const tabAgent = document.getElementById("tab-agent");
+      const btnHistory = document.getElementById("btn-history");
+      const historyDrawer = document.getElementById("history-drawer");
+      const closeHistory = document.getElementById("close-history");
+      const sessionListEl = document.getElementById("session-list");
+
+      let currentSessionId = null;
+
+      btnHistory.addEventListener("click", () => {
+        const isOpen = historyDrawer.style.display !== "none";
+        historyDrawer.style.display = isOpen ? "none" : "block";
+        if (!isOpen) fetchSavedSessions();
+      });
+
+      closeHistory.addEventListener("click", () => {
+        historyDrawer.style.display = "none";
+      });
+
+      async function fetchSavedSessions() {
+        sessionListEl.innerHTML = '<span style="font-size:0.75rem; color:var(--muted);">Loading sessions...</span>';
+        try {
+          const res = await fetch("/api/sessions");
+          const data = await res.json();
+          if (!data.sessions || data.sessions.length === 0) {
+            sessionListEl.innerHTML = '<span style="font-size:0.75rem; color:var(--muted);">No saved sessions yet. Start a chat or agent task!</span>';
+            return;
+          }
+
+          sessionListEl.innerHTML = data.sessions.map(s => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.02); padding:0.35rem 0.6rem; border-radius:8px; font-size:0.78rem;">
+              <span style="font-weight:600; color:var(--ink); cursor:pointer;" onclick="loadSession('${s.id}')">
+                ${escapeHtml(s.title)} <small style="color:var(--muted); font-weight:normal;">(${s.mode})</small>
+              </span>
+              <span style="font-size:0.7rem; color:var(--danger); cursor:pointer;" onclick="deleteSessionId('${s.id}')">Delete</span>
+            </div>
+          `).join("");
+        } catch (err) {
+          sessionListEl.innerHTML = '<span style="font-size:0.75rem; color:var(--danger);">Failed to load sessions.</span>';
+        }
+      }
+
+      window.loadSession = async function(id) {
+        try {
+          const res = await fetch(`/api/sessions/${id}`);
+          const data = await res.json();
+          if (!data.session) return;
+
+          currentSessionId = data.session.id;
+          history.length = 0;
+          messagesEl.innerHTML = "";
+
+          setMode(data.session.mode);
+
+          if (data.messages && data.messages.length > 0) {
+            data.messages.forEach(m => {
+              addMessage(m.role, m.content);
+              if (m.role === "user" || m.role === "assistant") {
+                history.push({ role: m.role, content: m.content });
+              }
+            });
+          }
+
+          if (data.agentRuns && data.agentRuns.length > 0) {
+            data.agentRuns.forEach(r => {
+              addMessage("user", r.prompt);
+              addMessage("assistant", r.finalAnswer, {
+                agentSteps: r.steps,
+                latencyMs: r.latencyMs,
+              });
+            });
+          }
+
+          historyDrawer.style.display = "none";
+        } catch (err) {
+          alert("Failed to load session details.");
+        }
+      };
+
+      window.deleteSessionId = async function(id) {
+        if (!confirm("Delete this session from SQLite DB?")) return;
+        await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+        fetchSavedSessions();
+      };
+
 
       /** @type {"chat" | "extract" | "rag" | "agent"} */
       let currentMode = "chat";
@@ -640,7 +734,7 @@
             const response = await fetch("/api/basic/chat/stream", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ messages: history }),
+              body: JSON.stringify({ messages: history, sessionId: currentSessionId }),
             });
 
             thinking.remove();
@@ -680,6 +774,7 @@
                       bodyEl.textContent = accumulatedText;
                       scrollToBottom();
                     } else if (payload.done && payload.meta) {
+                      if (payload.meta.sessionId) currentSessionId = payload.meta.sessionId;
                       if (payload.meta.latencyMs) {
                         const meta = document.createElement("span");
                         meta.className = "latency";
@@ -697,6 +792,7 @@
 
             history.push({ role: "assistant", content: accumulatedText });
           } else if (currentMode === "extract") {
+
 
             // JSON Extraction Mode
             const response = await fetch("/api/basic/extract", {
