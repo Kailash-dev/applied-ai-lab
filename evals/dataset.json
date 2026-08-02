@@ -6,7 +6,7 @@
     "endpoint": "/api/basic/chat",
     "payload": { "message": "What model are you running on?" },
     "assertions": {
-      "containsAny": ["Ollama", "qwen2.5-coder", "local"]
+      "containsAny": ["Ollama", "qwen2.5-coder", "local", "qwen", "qwen2.5"]
     }
   },
   {

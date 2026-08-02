@@ -1,17 +1,22 @@
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434";
-const MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5-coder:7b";
+const AI_PROVIDER = (process.env.AI_PROVIDER ?? "ollama").toLowerCase();
+
+function getActiveModel(): string {
+  if (AI_PROVIDER === "groq") return process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
+  if (AI_PROVIDER === "gemini") return process.env.GEMINI_MODEL ?? "gemini-1.5-flash";
+  return process.env.OLLAMA_MODEL ?? "qwen2.5-coder:7b";
+}
 
 function buildSystemPrompt(model: string): string {
   return [
-    "You are a concise, helpful assistant running locally via Ollama.",
-    `Your model id is ${model}. You are not Claude, ChatGPT, or any cloud API.`,
-    "If asked about your runtime, say you run on the user's machine through Ollama.",
-    "Prefer short clear answers unless the user asks for detail.",
+    `You are a concise, helpful AI assistant running via ${AI_PROVIDER.toUpperCase()}.`,
+    `Your active model id is ${model}.`,
+    "Prefer short, clear, direct answers unless the user asks for depth.",
   ].join(" ");
 }
 
 export type ChatMessage = {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
 };
 
@@ -33,31 +38,101 @@ export type ExtractResult = {
   latencyMs: number;
 };
 
-export async function chat(messages: ChatMessage[]): Promise<ChatResult> {
-  const started = Date.now();
+/**
+ * Unified multi-provider LLM call router supporting Ollama, Groq (Free), and Gemini (Free).
+ */
+export async function callLLM(messages: ChatMessage[], isJsonMode = false): Promise<string> {
+  const model = getActiveModel();
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+  if (AI_PROVIDER === "groq") {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) throw new Error("GROQ_API_KEY environment variable is missing.");
+
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        response_format: isJsonMode ? { type: "json_object" } : undefined,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Groq API error ${res.status}: ${errText.slice(0, 300)}`);
+    }
+
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    return data.choices?.[0]?.message?.content ?? "";
+  }
+
+  if (AI_PROVIDER === "gemini") {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY environment variable is missing.");
+
+    const formattedContents = messages.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: formattedContents }),
+      },
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Gemini API error ${res.status}: ${errText.slice(0, 300)}`);
+    }
+
+    const data = (await res.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  }
+
+  // Default: Ollama (100% Local)
+  const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       stream: false,
-      messages: [{ role: "system", content: buildSystemPrompt(MODEL) }, ...messages],
+      format: isJsonMode ? "json" : undefined,
+      messages,
     }),
   });
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Ollama error ${response.status}: ${body.slice(0, 300)}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Ollama error ${res.status}: ${body.slice(0, 300)}`);
   }
 
-  const data = (await response.json()) as {
-    message?: { content?: string };
-  };
+  const data = (await res.json()) as { message?: { content?: string } };
+  return data.message?.content ?? "";
+}
+
+export async function chat(messages: ChatMessage[]): Promise<ChatResult> {
+  const started = Date.now();
+  const activeModel = getActiveModel();
+  const fullMessages: ChatMessage[] = [
+    { role: "system", content: buildSystemPrompt(activeModel) },
+    ...messages,
+  ];
+
+  const reply = await callLLM(fullMessages, false);
 
   return {
-    reply: data.message?.content ?? "",
-    model: MODEL,
+    reply,
+    model: `${AI_PROVIDER}:${activeModel}`,
     latencyMs: Date.now() - started,
   };
 }
@@ -103,6 +178,7 @@ function parseAndValidateExtraction(rawContent: string): ExtractedData {
 
 export async function extractJSON(text: string): Promise<ExtractResult> {
   const started = Date.now();
+  const activeModel = getActiveModel();
 
   const systemPrompt = [
     "You are a structured data extraction engine.",
@@ -114,45 +190,23 @@ export async function extractJSON(text: string): Promise<ExtractResult> {
     "Do not include any explanation or markdown formatting outside the JSON object.",
   ].join(" ");
 
-  const makeCall = async (msgs: { role: string; content: string }[]) => {
-    const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODEL,
-        stream: false,
-        format: "json",
-        messages: msgs,
-      }),
-    });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      throw new Error(`Ollama error ${res.status}: ${errBody.slice(0, 300)}`);
-    }
-
-    const data = (await res.json()) as { message?: { content?: string } };
-    return data.message?.content ?? "";
-  };
-
-  const initialMsgs = [
+  const initialMsgs: ChatMessage[] = [
     { role: "system", content: systemPrompt },
     { role: "user", content: text },
   ];
 
-  let rawReply = await makeCall(initialMsgs);
+  let rawReply = await callLLM(initialMsgs, true);
 
   try {
     const validated = parseAndValidateExtraction(rawReply);
     return {
       data: validated,
-      model: MODEL,
+      model: `${AI_PROVIDER}:${activeModel}`,
       latencyMs: Date.now() - started,
     };
   } catch (firstError) {
     const errorMsg = firstError instanceof Error ? firstError.message : String(firstError);
-    // Auto-retry once with feedback
-    const retryMsgs = [
+    const retryMsgs: ChatMessage[] = [
       ...initialMsgs,
       { role: "assistant", content: rawReply },
       {
@@ -161,13 +215,13 @@ export async function extractJSON(text: string): Promise<ExtractResult> {
       },
     ];
 
-    rawReply = await makeCall(retryMsgs);
+    rawReply = await callLLM(retryMsgs, true);
 
     try {
       const validated = parseAndValidateExtraction(rawReply);
       return {
         data: validated,
-        model: MODEL,
+        model: `${AI_PROVIDER}:${activeModel}`,
         latencyMs: Date.now() - started,
       };
     } catch (secondError) {

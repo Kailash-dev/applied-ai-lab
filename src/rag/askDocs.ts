@@ -1,7 +1,13 @@
 import { vectorStore } from "./vectorStore";
+import { callLLM, type ChatMessage } from "../chat";
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434";
-const MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5-coder:7b";
+const AI_PROVIDER = (process.env.AI_PROVIDER ?? "ollama").toLowerCase();
+
+function getActiveModel(): string {
+  if (AI_PROVIDER === "groq") return process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
+  if (AI_PROVIDER === "gemini") return process.env.GEMINI_MODEL ?? "gemini-1.5-flash";
+  return process.env.OLLAMA_MODEL ?? "qwen2.5-coder:7b";
+}
 
 export type RAGSource = {
   label: string;
@@ -20,6 +26,7 @@ export type AskDocsResult = {
 
 export async function askDocs(question: string): Promise<AskDocsResult> {
   const started = Date.now();
+  const activeModel = getActiveModel();
 
   // 1. Search vector store for top semantic matches
   const searchResults = await vectorStore.search(question, 3, 0.50);
@@ -29,7 +36,7 @@ export async function askDocs(question: string): Promise<AskDocsResult> {
     return {
       reply: "I don't have enough information in the provided documentation to answer this question.",
       sources: [],
-      model: MODEL,
+      model: `${AI_PROVIDER}:${activeModel}`,
       latencyMs: Date.now() - started,
     };
   }
@@ -50,26 +57,12 @@ export async function askDocs(question: string): Promise<AskDocsResult> {
     "\nDocument Excerpts:\n" + contextText,
   ].join("\n");
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL,
-      stream: false,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: question },
-      ],
-    }),
-  });
+  const messages: ChatMessage[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: question },
+  ];
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Ollama error ${response.status}: ${body.slice(0, 300)}`);
-  }
-
-  const data = (await response.json()) as { message?: { content?: string } };
-  const reply = data.message?.content ?? "";
+  const reply = await callLLM(messages, false);
 
   const sources: RAGSource[] = searchResults.map((res, idx) => ({
     label: `Doc ${idx + 1}`,
@@ -82,7 +75,7 @@ export async function askDocs(question: string): Promise<AskDocsResult> {
   return {
     reply,
     sources,
-    model: MODEL,
+    model: `${AI_PROVIDER}:${activeModel}`,
     latencyMs: Date.now() - started,
   };
 }
