@@ -22,7 +22,7 @@ export async function askDocs(question: string): Promise<AskDocsResult> {
   const started = Date.now();
 
   // 1. Search vector store for top semantic matches
-  const searchResults = await vectorStore.search(question, 3, 0.45);
+  const searchResults = await vectorStore.search(question, 3, 0.50);
 
   // 2. Abstention Check: If no relevant documentation was found above threshold
   if (searchResults.length === 0) {

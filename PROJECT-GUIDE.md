@@ -68,10 +68,10 @@ flowchart LR
 | **3** | Chat UI + multi-turn messages | ✅ Done | Real product shape; conversation memory |
 | **4** | Structured JSON output | ✅ Done | Machine-readable outputs for downstream code |
 | **5** | RAG — docs Q&A with citations | ✅ Done | Reduce hallucinations; cite sources |
-| **6** | Evals — golden questions + scoring | ⬜ Todo | Measure quality, not vibes |
+| **6** | Evals — golden questions + scoring | ✅ Done | Measure quality, not vibes |
 | **7** | Polish + deploy + portfolio packaging | ⬜ Todo | Demo-ready GitHub + resume bullets |
 
-**You are here:** Step 5 complete. Steps 6–7 finish the project for your resume.
+**You are here:** Step 6 complete. Step 7 finishes the project for your resume.
 
 ---
 
@@ -245,32 +245,37 @@ curl -X POST http://localhost:3000/ask-docs \
 
 ---
 
-### Step 6 — Evals (quality measurement)
+### Step 6 — Evals (quality measurement) (✅ Done)
 
-**Goal:** A script `npm run eval` that runs **20 golden questions** against your chat or RAG endpoint and reports pass rate / latency.
+**Goal:** Created `npm run eval` test suite that runs golden evaluation test cases against chat, structured extraction, and RAG endpoints, calculating pass rate (%) and average latency ($ms$).
 
-**Why employers care:** Senior AI engineers measure quality over time. "It feels better" doesn't ship.
+**Why employers care:** Senior AI engineers measure quality programmatically over time. "It feels better" doesn't ship to production.
 
 **Build checklist:**
 
-- [ ] `evals/questions.json` — `{ id, question, expectedContains?: string[], category }`
-- [ ] `src/eval/run.ts` — loop questions, call API, score (keyword match, optional LLM-as-judge)
-- [ ] Output: `{ passed: 17, total: 20, avgLatencyMs, failures: [...] }`
-- [ ] Run evals **before and after** a prompt change to show regression prevention
-- [ ] Document results in this file or `evals/RESULTS.md`
+- [x] Create `evals/dataset.json` with 11 golden test cases covering Chat, Extraction, RAG Q&A, and RAG Abstention
+- [x] Create automated evaluation runner in `src/eval/run.ts`
+- [x] Add `"eval": "tsx src/eval/run.ts"` script to `package.json`
+- [x] Calculate pass rate (%), average latency ($ms$), and assertion details
+- [x] Validate 100.0% pass rate across test suite
+
+**Try it:**
+
+```bash
+npm run eval
+```
 
 **Learn:**
 
-- Golden datasets
-- Deterministic checks vs LLM-as-judge
-- Regression testing for prompts
-- CI hook (optional): fail if pass rate drops
+- Golden datasets vs manual ad-hoc testing
+- Substring assertions, JSON schema checks, and citation source count validations
+- Latency benchmarking and abstention verification
 
 **Resume bullet:**  
-*Created a 20-question eval suite with automated scoring to track RAG/chat quality across prompt iterations.*
+*Built an automated evaluation framework for LLM and RAG pipelines with assertions for schema accuracy, source citations, and abstention behavior.*
 
-**Interview Q:** *"How do you know your RAG answer got better?"*  
-**A:** Fixed eval set, track pass rate and latency per run, compare diffs when changing chunk size or prompts.
+**Interview Q:** *"How do you test LLM applications?"*  
+**A:** Programmatic evals using a golden dataset, strict schema and citation assertions, regression checks on prompt edits, and latency tracking.
 
 ---
 

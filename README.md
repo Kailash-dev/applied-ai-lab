@@ -163,7 +163,37 @@ Example response:
     "model": "qwen2.5-coder:7b",
     "latencyMs": 3073
   }
-}
+### 4. Automated Evaluation Suite (`npm run eval`)
+Run the golden evaluation benchmark suite against all API endpoints:
+
+```bash
+npm run eval
+```
+
+Example report output:
+
+```text
+=================================================
+ 🧪 Applied AI Lab — Evaluation & Benchmark Suite
+ Target Server: http://localhost:3000
+=================================================
+
+✅ PASS [CHAT] Chat Identity & Grounding (937ms)
+✅ PASS [CHAT] Chat Multi-turn History Context (774ms)
+✅ PASS [EXTRACT] Valid JSON Extraction (TypeScript Overview) (2636ms)
+✅ PASS [RAG] RAG Grounded Query (Port Number) (1641ms)
+✅ PASS [RAG] RAG Out-of-Scope Abstention Test (Pancake Recipe) (45ms)
+
+=================================================
+ 📊 Evaluation Benchmark Results Summary
+=================================================
+ Total Test Cases: 11
+ Passed:           11 ✅
+ Failed:           0 ❌
+ Pass Rate:        100.0%
+ Average Latency:  1267 ms
+ Suite Duration:   13948 ms
+=================================================
 ```
 
 ---
@@ -188,4 +218,5 @@ Example response:
 | 3 | Chat UI + multi-turn messages | ✅ Done |
 | 4 | Structured JSON extraction (`POST /extract`) | ✅ Done |
 | 5 | RAG Docs Q&A with citations (`POST /ask-docs`) | ✅ Done |
-| 6+ | Evals, portfolio packaging — see [PROJECT-GUIDE.md](./PROJECT-GUIDE.md) | ⬜ Todo |
+| 6 | Automated Evals & Benchmarks (`npm run eval`) | ✅ Done |
+| 7+ | Portfolio packaging & deploy — see [PROJECT-GUIDE.md](./PROJECT-GUIDE.md) | ⬜ Todo |

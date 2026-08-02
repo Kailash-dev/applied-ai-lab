@@ -10,12 +10,12 @@
 ## TL;DR for the next agent
 
 1. This is a **local-only** Ollama app (no cloud LLM APIs).
-2. Steps **1–5 are done**. Next work is **Step 6: Evals (golden questions + scoring script)**.
-3. Follow **`PROJECT-GUIDE.md`** for the full roadmap (steps 6–7).
+2. Steps **1–6 are done**. Next work is **Step 7: Polish + Portfolio Packaging**.
+3. Follow **`PROJECT-GUIDE.md`** for the full roadmap (step 7).
 4. Keep the stack simple: TypeScript + Express + vanilla UI + Ollama. Do **not** add React/Next unless the user asks.
 5. User is learning — explain concepts when implementing; keep code small and clear.
 
-**Immediate next task:** implement Step 6 (Evals script `npm run eval` with golden Q&A dataset).
+**Immediate next task:** implement Step 7 (README polish, final commit/PR, portfolio packaging & interview preparation).
 
 ---
 
@@ -25,7 +25,7 @@
 |------|--------|
 | Path | `/Users/kailash/Code/personal/learning/Ai-engineering/applied-ai-lab` |
 | GitHub | https://github.com/Kailash-dev/applied-ai-lab |
-| Branch | `main` |
+| Branch | `feat/json-extraction-and-rag` |
 
 ---
 
@@ -45,6 +45,9 @@ npm install
 cp .env.example .env   # if needed
 npm run dev
 # → http://localhost:3000
+
+# 4) Evals
+npm run eval
 ```
 
 `.env` defaults:
@@ -58,33 +61,37 @@ PORT=3000
 
 ---
 
-## What already works (Steps 1–5)
+## What already works (Steps 1–6)
 
 ### Architecture
 
 ```
 Browser (public/index.html)
-  → POST /chat { messages }
-  → POST /extract { text }
-  → POST /ask-docs { question }
-  → Express (src/server.ts) validates input & initializes RAG VectorStore
+  → POST /api/basic/chat { messages }
+  → POST /api/basic/extract { text }
+  → POST /api/basic/ask-docs { question }
+  → Express (src/server.ts) mounts router & initializes RAG VectorStore
   → RAG Engine (src/rag/): chunk -> nomic-embed-text -> vectorStore -> cosineSimilarity -> askDocs()
-  → { reply / data / sources, meta: { model, latencyMs } }
+  → Evaluation Benchmark (src/eval/run.ts): npm run eval
 ```
 
 ### Key files
 
 | File | Role |
 |------|------|
-| `src/server.ts` | Express server, input validation, `/chat`, `/extract`, and `/ask-docs` routes |
+| `src/server.ts` | Express server, mounts `/api/basic` router, initializes vector store |
+| `src/routes/basic.route.ts` | Modular API route controller |
+| `src/validators/validators.ts` | Input validation functions |
 | `src/chat.ts` | Ollama client, system prompt, JSON extraction with 1-turn retry |
 | `src/rag/chunk.ts` | Document paragraph chunking for `docs/*.md` files |
 | `src/rag/embeddings.ts` | `nomic-embed-text` vector embedding generator & cosine similarity calculator |
-| `src/rag/vectorStore.ts` | In-memory vector database & threshold search engine |
+| `src/rag/vectorStore.ts` | In-memory vector database & threshold search engine (`minScore = 0.50`) |
 | `src/rag/askDocs.ts` | RAG prompt orchestrator, citation formatter, and abstention engine |
+| `evals/dataset.json` | Golden test dataset (11 cases) |
+| `src/eval/run.ts` | Automated evaluation test runner (`npm run eval`) |
 | `public/index.html` | Tabbed UI (Chat, JSON Extractor, RAG Docs Q&A with expandable citations) |
 | `PROJECT-GUIDE.md` | Learning roadmap + interview/resume bullets |
-| `README.md` | Local setup + run instructions + API curl examples |
+| `README.md` | Local setup + run instructions + API curl & eval examples |
 | `HANDOFF.md` | This file |
 
 ---
@@ -98,8 +105,8 @@ Browser (public/index.html)
 | 3 | Chat UI + multi-turn messages | ✅ Done |
 | 4 | Structured JSON output | ✅ Done |
 | 5 | RAG — docs Q&A with citations | ✅ Done |
-| **6** | **Evals — golden questions + scoring** | ⬜ **NEXT** |
-| 7 | Polish + deploy + portfolio packaging | ⬜ Todo |
+| 6 | Evals — golden questions + scoring | ✅ Done |
+| **7** | **Polish + deploy + portfolio packaging** | ⬜ **NEXT** |
 
 Full checklists, interview Qs, and resume bullets: **`PROJECT-GUIDE.md`** (sections Step 4–7).
 

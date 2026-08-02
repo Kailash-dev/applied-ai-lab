@@ -4,7 +4,8 @@
   "private": true,
   "description": "Step-by-step Applied AI learning lab",
   "scripts": {
-    "dev": "tsx src/server.ts"
+    "dev": "tsx src/server.ts",
+    "eval": "tsx src/eval/run.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

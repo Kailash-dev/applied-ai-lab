@@ -45,7 +45,7 @@ class VectorStore {
     return this.initialized;
   }
 
-  async search(query: string, topK = 3, minScore = 0.45): Promise<SearchResult[]> {
+  async search(query: string, topK = 3, minScore = 0.50): Promise<SearchResult[]> {
     if (!this.initialized || this.chunks.length === 0) {
       return [];
     }
