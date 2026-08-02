@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Applied AI Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #14212b;
+        --muted: #5a6b78;
+        --line: rgba(20, 33, 43, 0.12);
+        --panel: rgba(255, 255, 255, 0.72);
+        --user: #0f6e6a;
+        --user-soft: rgba(15, 110, 106, 0.1);
+        --assistant: #f4f7f8;
+        --danger: #9b2c2c;
+        --shadow: 0 18px 50px rgba(20, 33, 43, 0.08);
+        --radius: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        font-family: "Figtree", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(1200px 600px at 10% -10%, rgba(15, 110, 106, 0.18), transparent 55%),
+          radial-gradient(900px 500px at 100% 0%, rgba(47, 92, 140, 0.14), transparent 50%),
+          linear-gradient(180deg, #eef3f5 0%, #e4ecef 45%, #dce7ea 100%);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(rgba(20, 33, 43, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(20, 33, 43, 0.035) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(ellipse at center, black 35%, transparent 80%);
+      }
+
+      .app {
+        position: relative;
+        z-index: 1;
+        width: min(760px, calc(100% - 2rem));
+        margin: 0 auto;
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 1rem;
+        padding: 1.25rem 0 1.5rem;
+      }
+
+      header {
+        animation: rise 0.55s ease both;
+      }
+
+      .brand {
+        margin: 0;
+        font-size: clamp(1.6rem, 4vw, 2.1rem);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+
+      .tagline {
+        margin: 0.35rem 0 0;
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+
+      .meta-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 0.75rem;
+        margin-top: 0.85rem;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+
+      .meta-bar span {
+        padding: 0.28rem 0.55rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.45);
+      }
+
+      .chat-shell {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        border: 1px solid var(--line);
+        border-radius: calc(var(--radius) + 4px);
+        background: var(--panel);
+        backdrop-filter: blur(14px);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        animation: rise 0.7s ease both;
+        animation-delay: 0.08s;
+      }
+
+      #messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.1rem 1.1rem 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+        scroll-behavior: smooth;
+      }
+
+      .empty {
+        margin: auto;
+        text-align: center;
+        color: var(--muted);
+        max-width: 22rem;
+        padding: 2rem 1rem;
+        animation: fade 0.6s ease both;
+      }
+
+      .empty strong {
+        display: block;
+        color: var(--ink);
+        font-size: 1.05rem;
+        margin-bottom: 0.35rem;
+      }
+
+      .msg {
+        max-width: min(92%, 560px);
+        padding: 0.8rem 0.95rem;
+        border-radius: 16px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        animation: bubble 0.28s ease both;
+      }
+
+      .msg.user {
+        align-self: flex-end;
+        background: var(--user);
+        color: #f7fffe;
+        border-bottom-right-radius: 6px;
+      }
+
+      .msg.assistant {
+        align-self: flex-start;
+        background: var(--assistant);
+        border: 1px solid var(--line);
+        border-bottom-left-radius: 6px;
+      }
+
+      .msg.error {
+        align-self: stretch;
+        background: #fff5f5;
+        border: 1px solid rgba(155, 44, 44, 0.25);
+        color: var(--danger);
+      }
+
+      .msg .role {
+        display: block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        opacity: 0.7;
+        margin-bottom: 0.3rem;
+      }
+
+      .msg.user .role {
+        color: rgba(247, 255, 254, 0.8);
+      }
+
+      .msg .latency {
+        display: block;
+        margin-top: 0.45rem;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.68rem;
+        color: var(--muted);
+      }
+
+      .typing {
+        display: inline-flex;
+        gap: 0.3rem;
+        align-items: center;
+        padding: 0.2rem 0;
+      }
+
+      .typing i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--muted);
+        animation: bounce 1.1s infinite ease-in-out;
+      }
+
+      .typing i:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+
+      .typing i:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+
+      form {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.65rem;
+        padding: 0.9rem;
+        border-top: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.55);
+        animation: rise 0.75s ease both;
+        animation-delay: 0.14s;
+      }
+
+      textarea {
+        resize: none;
+        min-height: 52px;
+        max-height: 160px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0.8rem 0.9rem;
+        font: inherit;
+        color: var(--ink);
+        background: #fff;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      textarea:focus {
+        border-color: rgba(15, 110, 106, 0.55);
+        box-shadow: 0 0 0 3px rgba(15, 110, 106, 0.12);
+      }
+
+      button {
+        border: 0;
+        border-radius: 14px;
+        padding: 0 1.15rem;
+        font: inherit;
+        font-weight: 600;
+        color: #f7fffe;
+        background: var(--ink);
+        cursor: pointer;
+        transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+      }
+
+      button:hover:not(:disabled) {
+        background: #0c1820;
+        transform: translateY(-1px);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes fade {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes bubble {
+        from {
+          opacity: 0;
+          transform: translateY(6px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          transform: translateY(0);
+          opacity: 0.45;
+        }
+        40% {
+          transform: translateY(-4px);
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .app {
+          width: calc(100% - 1rem);
+          padding-top: 0.85rem;
+        }
+
+        form {
+          grid-template-columns: 1fr;
+        }
+
+        button {
+          min-height: 48px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <h1 class="brand">Applied AI Lab</h1>
+        <p class="tagline">Chat with your local Ollama model. Keep it short, or ask for depth.</p>
+        <div class="meta-bar">
+          <span id="status">Ready</span>
+          <span id="model-label">model: …</span>
+        </div>
+      </header>
+
+      <main class="chat-shell">
+        <div id="messages">
+          <div class="empty" id="empty">
+            <strong>Start a conversation</strong>
+            Ask anything — for example, “What is an LLM API in one sentence?”
+          </div>
+        </div>
+
+        <form id="chat-form">
+          <textarea
+            id="input"
+            rows="2"
+            maxlength="4000"
+            placeholder="Type a message…"
+            autofocus
+          ></textarea>
+          <button type="submit" id="send">Send</button>
+        </form>
+      </main>
+    </div>
+
+    <script>
+      const messagesEl = document.getElementById("messages");
+      const emptyEl = document.getElementById("empty");
+      const form = document.getElementById("chat-form");
+      const input = document.getElementById("input");
+      const sendBtn = document.getElementById("send");
+      const statusEl = document.getElementById("status");
+      const modelLabel = document.getElementById("model-label");
+
+      /** @type {{ role: "user" | "assistant"; content: string }[]} */
+      const history = [];
+      let busy = false;
+
+      function hideEmpty() {
+        if (emptyEl) emptyEl.remove();
+      }
+
+      function scrollToBottom() {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function addMessage(role, content, extra = {}) {
+        hideEmpty();
+        const el = document.createElement("div");
+        el.className = `msg ${role}${extra.error ? " error" : ""}`;
+
+        const roleLabel = document.createElement("span");
+        roleLabel.className = "role";
+        roleLabel.textContent = extra.error ? "Error" : role === "user" ? "You" : "Assistant";
+        el.appendChild(roleLabel);
+
+        const body = document.createElement("div");
+        body.textContent = content;
+        el.appendChild(body);
+
+        if (typeof extra.latencyMs === "number") {
+          const meta = document.createElement("span");
+          meta.className = "latency";
+          meta.textContent = `${extra.latencyMs} ms`;
+          el.appendChild(meta);
+        }
+
+        messagesEl.appendChild(el);
+        scrollToBottom();
+        return el;
+      }
+
+      function setBusy(next) {
+        busy = next;
+        sendBtn.disabled = next;
+        input.disabled = next;
+        statusEl.textContent = next ? "Thinking…" : "Ready";
+      }
+
+      function autoGrow() {
+        input.style.height = "auto";
+        input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+      }
+
+      input.addEventListener("input", autoGrow);
+
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          form.requestSubmit();
+        }
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const message = input.value.trim();
+        if (!message || busy) return;
+
+        addMessage("user", message);
+        history.push({ role: "user", content: message });
+        input.value = "";
+        autoGrow();
+
+        const thinking = addMessage("assistant", "");
+        thinking.querySelector("div").innerHTML =
+          '<span class="typing" aria-label="Assistant is typing"><i></i><i></i><i></i></span>';
+
+        setBusy(true);
+
+        try {
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: history }),
+          });
+
+          const data = await response.json();
+          thinking.remove();
+
+          if (!response.ok) {
+            const detail = data.detail ? `\n${data.detail}` : "";
+            addMessage("assistant", `${data.error || "Request failed."}${detail}`, {
+              error: true,
+            });
+            history.pop();
+            return;
+          }
+
+          const reply = data.reply || "(empty reply)";
+          addMessage("assistant", reply, { latencyMs: data.meta?.latencyMs });
+          history.push({ role: "assistant", content: reply });
+
+          if (data.meta?.model) {
+            modelLabel.textContent = `model: ${data.meta.model}`;
+          }
+        } catch (error) {
+          thinking.remove();
+          addMessage(
+            "assistant",
+            error instanceof Error ? error.message : "Network error talking to the server.",
+            { error: true },
+          );
+          history.pop();
+        } finally {
+          setBusy(false);
+          input.focus();
+        }
+      });
+    </script>
+  </body>
+</html>
