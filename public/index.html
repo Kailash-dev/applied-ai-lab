@@ -327,6 +327,67 @@
         button {
           min-height: 48px;
         }
+      .mode-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+
+      .tab-btn {
+        background: rgba(255, 255, 255, 0.45);
+        color: var(--muted);
+        border: 1px solid var(--line);
+        padding: 0.35rem 0.85rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .tab-btn.active {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+
+      .extracted-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+        margin-top: 0.4rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .extracted-card .ext-title {
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--ink);
+      }
+
+      .extracted-card .ext-summary {
+        font-size: 0.88rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .extracted-card .ext-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.25rem;
+      }
+
+      .extracted-card .tag-badge {
+        background: var(--user-soft);
+        color: var(--user);
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.2rem 0.5rem;
+        border-radius: 6px;
       }
     </style>
   </head>
@@ -334,18 +395,23 @@
     <div class="app">
       <header>
         <h1 class="brand">Applied AI Lab</h1>
-        <p class="tagline">Chat with your local Ollama model. Keep it short, or ask for depth.</p>
+        <p class="tagline">Chat with your local Ollama model or extract structured JSON data.</p>
         <div class="meta-bar">
           <span id="status">Ready</span>
           <span id="model-label">model: …</span>
+        </div>
+        <div class="mode-tabs">
+          <button type="button" class="tab-btn active" id="tab-chat">💬 Multi-turn Chat</button>
+          <button type="button" class="tab-btn" id="tab-extract">🧩 JSON Extractor</button>
+          <button type="button" class="tab-btn" id="tab-rag">📚 Docs Q&A (RAG)</button>
         </div>
       </header>
 
       <main class="chat-shell">
         <div id="messages">
           <div class="empty" id="empty">
-            <strong>Start a conversation</strong>
-            Ask anything — for example, “What is an LLM API in one sentence?”
+            <strong id="empty-title">Start a conversation</strong>
+            <span id="empty-desc">Ask anything — for example, “What is an LLM API in one sentence?”</span>
           </div>
         </div>
 
@@ -365,18 +431,53 @@
     <script>
       const messagesEl = document.getElementById("messages");
       const emptyEl = document.getElementById("empty");
+      const emptyTitle = document.getElementById("empty-title");
+      const emptyDesc = document.getElementById("empty-desc");
       const form = document.getElementById("chat-form");
       const input = document.getElementById("input");
       const sendBtn = document.getElementById("send");
       const statusEl = document.getElementById("status");
       const modelLabel = document.getElementById("model-label");
+      const tabChat = document.getElementById("tab-chat");
+      const tabExtract = document.getElementById("tab-extract");
+      const tabRag = document.getElementById("tab-rag");
+
+      /** @type {"chat" | "extract" | "rag"} */
+      let currentMode = "chat";
 
       /** @type {{ role: "user" | "assistant"; content: string }[]} */
       const history = [];
       let busy = false;
 
+      tabChat.addEventListener("click", () => setMode("chat"));
+      tabExtract.addEventListener("click", () => setMode("extract"));
+      tabRag.addEventListener("click", () => setMode("rag"));
+
+      function setMode(mode) {
+        if (currentMode === mode) return;
+        currentMode = mode;
+
+        tabChat.classList.toggle("active", mode === "chat");
+        tabExtract.classList.toggle("active", mode === "extract");
+        tabRag.classList.toggle("active", mode === "rag");
+
+        if (mode === "chat") {
+          input.placeholder = "Type a message…";
+          if (emptyTitle) emptyTitle.textContent = "Start a conversation";
+          if (emptyDesc) emptyDesc.textContent = 'Ask anything — for example, “What is an LLM API in one sentence?”';
+        } else if (mode === "extract") {
+          input.placeholder = "Paste text to extract structured JSON (title, summary, tags)…";
+          if (emptyTitle) emptyTitle.textContent = "Extract Structured JSON";
+          if (emptyDesc) emptyDesc.textContent = "Paste any raw text or article paragraph to extract clean JSON matching schema.";
+        } else if (mode === "rag") {
+          input.placeholder = "Ask a question about local documentation (e.g. 'What port does the app run on?')...";
+          if (emptyTitle) emptyTitle.textContent = "Docs Q&A (RAG)";
+          if (emptyDesc) emptyDesc.textContent = "Ask questions grounded strictly in local docs/*.md files with citations.";
+        }
+      }
+
       function hideEmpty() {
-        if (emptyEl) emptyEl.remove();
+        if (emptyEl) emptyEl.style.display = "none";
       }
 
       function scrollToBottom() {
@@ -394,7 +495,48 @@
         el.appendChild(roleLabel);
 
         const body = document.createElement("div");
-        body.textContent = content;
+        
+        if (extra.extractedData) {
+          const d = extra.extractedData;
+          body.innerHTML = `
+            <div class="extracted-card">
+              <div class="ext-title">${escapeHtml(d.title)}</div>
+              <div class="ext-summary">${escapeHtml(d.summary)}</div>
+              <div class="ext-tags">
+                ${(d.tags || []).map(t => `<span class="tag-badge">#${escapeHtml(t)}</span>`).join("")}
+              </div>
+            </div>
+            <pre style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; background:rgba(0,0,0,0.04); padding:0.6rem; border-radius:8px; margin-top:0.6rem; overflow-x:auto;">${escapeHtml(JSON.stringify(d, null, 2))}</pre>
+          `;
+        } else {
+          body.textContent = content;
+        }
+
+        if (Array.isArray(extra.sources) && extra.sources.length > 0) {
+          const sourcesContainer = document.createElement("div");
+          sourcesContainer.style.cssText = "margin-top:0.65rem; padding-top:0.6rem; border-top:1px dashed var(--line); font-size:0.78rem;";
+          
+          const header = document.createElement("div");
+          header.style.cssText = "font-weight:600; color:var(--muted); margin-bottom:0.4rem;";
+          header.textContent = "📌 Retrieved Sources:";
+          sourcesContainer.appendChild(header);
+
+          extra.sources.forEach((src) => {
+            const item = document.createElement("details");
+            item.style.cssText = "background:rgba(255,255,255,0.7); border:1px solid var(--line); border-radius:8px; padding:0.35rem 0.55rem; margin-bottom:0.35rem; cursor:pointer;";
+            item.innerHTML = `
+              <summary style="font-weight:600; color:var(--user);">
+                ${escapeHtml(src.label)}: <span style="color:var(--ink);">${escapeHtml(src.filename)}</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--muted); float:right;">Match: ${src.scorePercent}%</span>
+              </summary>
+              <p style="margin:0.35rem 0 0; color:var(--muted); font-size:0.76rem; line-height:1.4; white-space:pre-wrap;">${escapeHtml(src.excerpt)}</p>
+            `;
+            sourcesContainer.appendChild(item);
+          });
+
+          body.appendChild(sourcesContainer);
+        }
+
         el.appendChild(body);
 
         if (typeof extra.latencyMs === "number") {
@@ -407,6 +549,14 @@
         messagesEl.appendChild(el);
         scrollToBottom();
         return el;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
       }
 
       function setBusy(next) {
@@ -432,11 +582,10 @@
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const message = input.value.trim();
-        if (!message || busy) return;
+        const text = input.value.trim();
+        if (!text || busy) return;
 
-        addMessage("user", message);
-        history.push({ role: "user", content: message });
+        addMessage("user", text);
         input.value = "";
         autoGrow();
 
@@ -447,39 +596,90 @@
         setBusy(true);
 
         try {
-          const response = await fetch("/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: history }),
-          });
-
-          const data = await response.json();
-          thinking.remove();
-
-          if (!response.ok) {
-            const detail = data.detail ? `\n${data.detail}` : "";
-            addMessage("assistant", `${data.error || "Request failed."}${detail}`, {
-              error: true,
+          if (currentMode === "chat") {
+            history.push({ role: "user", content: text });
+            const response = await fetch("/api/basic/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messages: history }),
             });
-            history.pop();
-            return;
-          }
 
-          const reply = data.reply || "(empty reply)";
-          addMessage("assistant", reply, { latencyMs: data.meta?.latencyMs });
-          history.push({ role: "assistant", content: reply });
+            const data = await response.json();
+            thinking.remove();
 
-          if (data.meta?.model) {
-            modelLabel.textContent = `model: ${data.meta.model}`;
+            if (!response.ok) {
+              const detail = data.detail ? `\n${data.detail}` : "";
+              addMessage("assistant", `${data.error || "Request failed."}${detail}`, { error: true });
+              history.pop();
+              return;
+            }
+
+            const reply = data.reply || "(empty reply)";
+            addMessage("assistant", reply, { latencyMs: data.meta?.latencyMs });
+            history.push({ role: "assistant", content: reply });
+
+            if (data.meta?.model) {
+              modelLabel.textContent = `model: ${data.meta.model}`;
+            }
+          } else if (currentMode === "extract") {
+            // JSON Extraction Mode
+            const response = await fetch("/api/basic/extract", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text }),
+            });
+
+            const data = await response.json();
+            thinking.remove();
+
+            if (!response.ok) {
+              const detail = data.detail ? `\n${data.detail}` : "";
+              addMessage("assistant", `${data.error || "Extraction failed."}${detail}`, { error: true });
+              return;
+            }
+
+            addMessage("assistant", "", {
+              extractedData: data.data,
+              latencyMs: data.meta?.latencyMs,
+            });
+
+            if (data.meta?.model) {
+              modelLabel.textContent = `model: ${data.meta.model}`;
+            }
+          } else if (currentMode === "rag") {
+            // RAG Docs Q&A Mode
+            const response = await fetch("/api/basic/ask-docs", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ question: text }),
+            });
+
+            const data = await response.json();
+            thinking.remove();
+
+            if (!response.ok) {
+              const detail = data.detail ? `\n${data.detail}` : "";
+              addMessage("assistant", `${data.error || "RAG query failed."}${detail}`, { error: true });
+              return;
+            }
+
+            addMessage("assistant", data.reply || "(empty reply)", {
+              sources: data.sources,
+              latencyMs: data.meta?.latencyMs,
+            });
+
+            if (data.meta?.model) {
+              modelLabel.textContent = `model: ${data.meta.model}`;
+            }
           }
         } catch (error) {
           thinking.remove();
           addMessage(
             "assistant",
             error instanceof Error ? error.message : "Network error talking to the server.",
-            { error: true },
+            { error: true }
           );
-          history.pop();
+          if (currentMode === "chat") history.pop();
         } finally {
           setBusy(false);
           input.focus();

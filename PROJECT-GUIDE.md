@@ -53,8 +53,9 @@ flowchart LR
 | `src/chat.ts` | Ollama call, system prompt, latency measurement |
 | `public/index.html` | Chat UI, client-side history, calls `/chat` |
 | `.env` | `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `PORT` |
-| `README.md` | Quick start |
+| `README.md` | Quick start (local Ollama setup) |
 | `PROJECT-GUIDE.md` | This file — learning + completion roadmap |
+| `HANDOFF.md` | Session handoff for continuing in Antigravity / another agent |
 
 ---
 
@@ -65,12 +66,12 @@ flowchart LR
 | **1** | Hello LLM — `POST /chat` | ✅ Done | You can call an LLM from code |
 | **2** | Ollama + system prompt + validation + latency | ✅ Done | Production basics: guardrails + observability |
 | **3** | Chat UI + multi-turn messages | ✅ Done | Real product shape; conversation memory |
-| **4** | Structured JSON output | ⬜ Todo | Machine-readable outputs for downstream code |
-| **5** | RAG — docs Q&A with citations | ⬜ Todo | Reduce hallucinations; cite sources |
+| **4** | Structured JSON output | ✅ Done | Machine-readable outputs for downstream code |
+| **5** | RAG — docs Q&A with citations | ✅ Done | Reduce hallucinations; cite sources |
 | **6** | Evals — golden questions + scoring | ⬜ Todo | Measure quality, not vibes |
 | **7** | Polish + deploy + portfolio packaging | ⬜ Todo | Demo-ready GitHub + resume bullets |
 
-**You are here:** Step 3 complete. Steps 4–7 finish the project for your resume.
+**You are here:** Step 5 complete. Steps 6–7 finish the project for your resume.
 
 ---
 
@@ -170,19 +171,27 @@ Complete steps 4–7 in order. Each step adds a **resume bullet** and an **inter
 
 ---
 
-### Step 4 — Structured JSON output
+### Step 4 — Structured JSON output (✅ Done)
 
-**Goal:** Add `POST /extract` (or a `mode` on `/chat`) that forces the model to return **valid JSON** matching a schema — e.g. extract `{ title, summary, tags }` from a paragraph.
+**Goal:** Added `POST /extract` endpoint that forces the model to return **valid JSON** matching a schema — extracting `{ title, summary, tags }` from input text.
 
 **Why employers care:** Apps don't just chat — they feed LLM output into databases, UIs, and workflows. Free-form text breaks parsers.
 
 **Build checklist:**
 
-- [ ] Define a TypeScript type + JSON schema (e.g. `{ title: string; summary: string; tags: string[] }`)
-- [ ] Prompt: "Respond with JSON only, no markdown fences"
-- [ ] Parse response with `JSON.parse`; retry or return `422` on invalid JSON
-- [ ] Optional: use Ollama `format: "json"` if supported for your model
-- [ ] Add a small UI section or curl example in README
+- [x] Define a TypeScript type + JSON schema (`{ title: string; summary: string; tags: string[] }`)
+- [x] Prompt: "Output strictly valid JSON matching schema..."
+- [x] Parse response with `JSON.parse`; auto-retry with parse error feedback or return `422` on invalid JSON
+- [x] Use Ollama native `format: "json"` mode
+- [x] Add curl example in `README.md` and server startup logs
+
+**Try it:**
+
+```bash
+curl -X POST http://localhost:3000/extract \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"TypeScript is a typed superset of JavaScript that compiles to plain JavaScript."}'
+```
 
 **Learn:**
 
@@ -198,38 +207,35 @@ Complete steps 4–7 in order. Each step adds a **resume bullet** and an **inter
 
 ---
 
-### Step 5 — RAG (Retrieval-Augmented Generation)
+### Step 5 — RAG (Retrieval-Augmented Generation) (✅ Done)
 
-**Goal:** Add `POST /ask-docs` — user asks a question; system retrieves relevant chunks from **your markdown files** and answers **with citations**.
+**Goal:** Added `POST /ask-docs` — user asks a question; system retrieves relevant chunks from **`docs/*.md` files** via vector embeddings (`nomic-embed-text`) and answers **with citations**.
 
 **Why employers care:** RAG is on most GenAI job descriptions. It grounds answers in private data and reduces hallucination.
 
-**Suggested design:**
-
-```
-docs/*.md  →  chunk (500 tokens, overlap 50)
-           →  embed via Ollama embeddings (e.g. nomic-embed-text)
-           →  store in memory or simple JSON index
-User question  →  embed  →  top-k similar chunks
-           →  prompt: "Answer using ONLY these sources. Cite [1], [2]."
-           →  return { answer, sources: [{ id, excerpt, file }] }
-```
-
 **Build checklist:**
 
-- [ ] Add `docs/` folder with 3–5 markdown files (e.g. your notes, a fake product FAQ)
-- [ ] Chunking function in `src/rag/chunk.ts`
-- [ ] Embedding + similarity in `src/rag/retrieve.ts`
-- [ ] `POST /ask-docs` route in `server.ts`
-- [ ] UI tab or separate page: question → answer + clickable sources
-- [ ] Explicit "I don't know" when retrieval score is below threshold
+- [x] Add `docs/` folder with 3 markdown files (`setup.md`, `architecture.md`, `troubleshooting.md`)
+- [x] Paragraph chunking function in `src/rag/chunk.ts`
+- [x] Vector embedding + cosine similarity in `src/rag/embeddings.ts` and `src/rag/vectorStore.ts`
+- [x] `POST /ask-docs` route in `server.ts` & `src/rag/askDocs.ts`
+- [x] UI tab for **Docs Q&A (RAG)** with collapsible source citation cards
+- [x] Explicit abstention fallback ("I don't have enough information...") when relevance score is below threshold (0.45)
+
+**Try it:**
+
+```bash
+curl -X POST http://localhost:3000/ask-docs \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"What port does the application run on?"}'
+```
 
 **Learn:**
 
 - Chunk size / overlap tradeoffs
-- Embeddings vs keyword search
-- Citation formatting
-- When RAG fails (wrong chunks, stale docs)
+- Vector embeddings vs keyword search
+- Citation formatting and context prompt injection
+- Hallucination prevention through similarity score thresholds and abstention
 
 **Resume bullet:**  
 *Built a RAG pipeline over markdown docs with embedding retrieval, source citations, and abstention when confidence is low.*
