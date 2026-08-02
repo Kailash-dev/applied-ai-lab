@@ -1,0 +1,134 @@
+[
+  {
+    "id": "chat-01",
+    "category": "chat",
+    "name": "Chat Identity & Grounding",
+    "endpoint": "/api/basic/chat",
+    "payload": { "message": "What model are you running on?" },
+    "assertions": {
+      "containsAny": ["Ollama", "qwen2.5-coder", "local"]
+    }
+  },
+  {
+    "id": "chat-02",
+    "category": "chat",
+    "name": "Chat Multi-turn History Context",
+    "endpoint": "/api/basic/chat",
+    "payload": {
+      "messages": [
+        { "role": "user", "content": "My secret code is ALPHA-99." },
+        { "role": "assistant", "content": "Got it! I saved your secret code." },
+        { "role": "user", "content": "What is my secret code?" }
+      ]
+    },
+    "assertions": {
+      "containsAny": ["ALPHA-99"]
+    }
+  },
+  {
+    "id": "chat-03",
+    "category": "chat",
+    "name": "Chat Input Validation (Empty Message)",
+    "endpoint": "/api/basic/chat",
+    "payload": { "message": "" },
+    "assertions": {
+      "expectedStatus": 400
+    }
+  },
+  {
+    "id": "extract-01",
+    "category": "extract",
+    "name": "Valid JSON Extraction (TypeScript Overview)",
+    "endpoint": "/api/basic/extract",
+    "payload": {
+      "text": "TypeScript is a strongly typed superset of JavaScript that compiles to plain JavaScript. It was released by Microsoft in 2012."
+    },
+    "assertions": {
+      "expectedStatus": 200,
+      "requireJsonFields": ["title", "summary", "tags"]
+    }
+  },
+  {
+    "id": "extract-02",
+    "category": "extract",
+    "name": "Valid JSON Extraction (Ollama AI Tool)",
+    "endpoint": "/api/basic/extract",
+    "payload": {
+      "text": "Ollama is a powerful tool for running open-source large language models locally on your macOS, Linux, or Windows computer."
+    },
+    "assertions": {
+      "expectedStatus": 200,
+      "requireJsonFields": ["title", "summary", "tags"]
+    }
+  },
+  {
+    "id": "extract-03",
+    "category": "extract",
+    "name": "Extract Input Validation (Missing Text)",
+    "endpoint": "/api/basic/extract",
+    "payload": { "text": "" },
+    "assertions": {
+      "expectedStatus": 400
+    }
+  },
+  {
+    "id": "rag-01",
+    "category": "rag",
+    "name": "RAG Grounded Query (Port Number)",
+    "endpoint": "/api/basic/ask-docs",
+    "payload": { "question": "What port does the server run on?" },
+    "assertions": {
+      "expectedStatus": 200,
+      "containsAny": ["3000"],
+      "minSources": 1
+    }
+  },
+  {
+    "id": "rag-02",
+    "category": "rag",
+    "name": "RAG Grounded Query (502 Error Fix)",
+    "endpoint": "/api/basic/ask-docs",
+    "payload": { "question": "How do I fix a 502 Bad Gateway error?" },
+    "assertions": {
+      "expectedStatus": 200,
+      "containsAny": ["Ollama", "ollama serve", "running"],
+      "minSources": 1
+    }
+  },
+  {
+    "id": "rag-03",
+    "category": "rag",
+    "name": "RAG Grounded Query (Architecture Endpoints)",
+    "endpoint": "/api/basic/ask-docs",
+    "payload": { "question": "What API endpoints exist in the application architecture?" },
+    "assertions": {
+      "expectedStatus": 200,
+      "containsAny": ["/chat", "/extract", "/ask-docs"],
+      "minSources": 1
+    }
+  },
+  {
+    "id": "rag-04",
+    "category": "rag",
+    "name": "RAG Out-of-Scope Abstention Test (Pancake Recipe)",
+    "endpoint": "/api/basic/ask-docs",
+    "payload": { "question": "What is the recipe for making blueberry pancakes?" },
+    "assertions": {
+      "expectedStatus": 200,
+      "containsAny": ["don't have enough information"],
+      "maxSources": 0
+    }
+  },
+  {
+    "id": "rag-05",
+    "category": "rag",
+    "name": "RAG Out-of-Scope Abstention Test (Weather)",
+    "endpoint": "/api/basic/ask-docs",
+    "payload": { "question": "What is the weather forecast for tomorrow in Tokyo?" },
+    "assertions": {
+      "expectedStatus": 200,
+      "containsAny": ["don't have enough information"],
+      "maxSources": 0
+    }
+  }
+]
